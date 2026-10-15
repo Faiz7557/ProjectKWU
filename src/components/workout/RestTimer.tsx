@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Coffee, FastForward } from 'lucide-react';
+import { Timer, Plus } from 'lucide-react';
 import type { RoutineStep } from '@/lib/routines/types';
+import { Button } from '@/components/ui/Button';
+import { Card, Badge, ProgressRing } from '@/components/ui/Surfaces';
 
 interface RestTimerProps {
   durationSec: number;
@@ -39,60 +41,45 @@ export function RestTimer({
     return () => clearInterval(timer);
   }, [timeLeft, onComplete]);
 
-  const progress = Math.min(100, Math.round(((durationSec - timeLeft) / durationSec) * 100));
+  const progress = Math.min(1, Math.max(0, (durationSec - timeLeft) / durationSec));
 
   return (
-    <div className="w-full max-w-md mx-auto bg-surface border border-separator rounded-lg p-6 text-center space-y-6 shadow-2xl backdrop-blur-md animate-enter">
-      {/* Icon & Label */}
+    <Card className="mx-auto w-full max-w-md space-y-6 p-6 text-center animate-enter">
       <div className="space-y-2">
-        <div className="w-16 h-16 rounded-md bg-warning-soft border border-warning/30 text-warning flex items-center justify-center mx-auto">
-          <Coffee className="w-8 h-8" />
-        </div>
-        <span className="text-xs font-bold text-warning tracking-normal block">
-          Waktu Istirahat
+        <span className="mx-auto grid size-14 place-items-center rounded-full bg-warning-soft text-warning">
+          <Timer className="size-7" aria-hidden="true" />
         </span>
-        <h2 className="text-2xl font-bold text-text">Tarik Napas & Minum Air</h2>
+        <p className="text-subhead font-semibold text-warning">Istirahat</p>
+        <h2 className="text-title-2 text-text">Tarik napas dan minum air</h2>
       </div>
 
-      {/* Countdown Clock */}
-      <div className="relative py-4">
-        <div className="text-6xl font-bold text-warning num tracking-tight">
-          {timeLeft}
-          <span className="text-lg font-bold text-text-3 ml-1">detik</span>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="w-full h-2 rounded-full bg-surface-3 mt-4 overflow-hidden">
-          <div
-            className="h-full bg-warning transition-all duration-1000"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Next Exercise Preview */}
-      {nextStep && (
-        <div className="p-4 rounded-md bg-surface-3 border border-border-strong text-left space-y-1">
-          <span className="text-xs font-bold text-accent-text tracking-normal block">
-            Gerakan Berikutnya:
+      <div className="flex flex-col items-center gap-2">
+        <ProgressRing value={progress} size={176} stroke={12} tone="streak" label={`Sisa istirahat ${timeLeft} detik`}>
+          <span className="flex items-baseline gap-1">
+            <span className="num text-metric-l text-text">{timeLeft}</span>
+            <span className="text-subhead text-text-2">dtk</span>
           </span>
-          <div className="flex items-center justify-between">
-            <span className="text-base font-bold text-text">{nextStep.exerciseName}</span>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-accent-soft text-accent-text">
-              {nextStep.targetReps ? `${nextStep.targetReps} Reps` : `${nextStep.targetDurationSec} Detik`}
-            </span>
+        </ProgressRing>
+      </div>
+
+      {nextStep && (
+        <div className="space-y-2 rounded-md bg-surface-3 p-4 text-left">
+          <p className="text-caption font-semibold text-text-2">Berikutnya</p>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-headline text-text">{nextStep.exerciseName}</span>
+            <Badge tone="accent">{nextStep.targetReps ? `${nextStep.targetReps} rep` : `${nextStep.targetDurationSec} dtk`}</Badge>
           </div>
         </div>
       )}
 
-      {/* Skip Button */}
-      <button
-        onClick={onSkip}
-        className="w-full py-3 px-4 rounded-md bg-surface-3 hover:bg-surface-3 text-text-2 hover:text-text font-semibold text-xs flex items-center justify-center gap-2 transition-all border border-border-strong"
-      >
-        <FastForward className="w-4 h-4" />
-        <span>Lewati Istirahat (Langsung Lanjut)</span>
-      </button>
-    </div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button size="lg" className="w-full" onClick={onSkip}>
+          Mulai sekarang
+        </Button>
+        <Button variant="tertiary" size="lg" className="w-full" onClick={() => setTimeLeft((t) => t + 15)} icon={<Plus className="size-4" aria-hidden="true" />}>
+          15 detik
+        </Button>
+      </div>
+    </Card>
   );
 }

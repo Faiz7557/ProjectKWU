@@ -8,40 +8,43 @@ interface CircuitProgressProps {
   routineName: string;
 }
 
+// Segmen aktif terisi dan tebal, tanpa animasi pulse (UI_UX_BRIEF §7.4).
 export function CircuitProgress({
   steps,
   currentStepIndex,
   routineName,
 }: CircuitProgressProps) {
+  const next = steps[currentStepIndex + 1];
   return (
-    <div className="w-full max-w-2xl mx-auto bg-surface border border-separator rounded-md p-3.5 shadow-lg backdrop-blur-md">
-      <div className="flex items-center justify-between mb-2 text-xs">
-        <span className="font-bold text-accent-text tracking-normal">{routineName}</span>
-        <span className="text-text-2 num">
+    <div className="mx-auto w-full max-w-2xl space-y-2.5 rounded-lg border border-separator bg-surface p-4 shadow-1">
+      <div className="flex items-center justify-between gap-3 text-footnote">
+        <span className="min-w-0 truncate font-semibold text-text">{routineName}</span>
+        <span className="num shrink-0 text-text-2">
           Gerakan {currentStepIndex + 1} dari {steps.length}
         </span>
       </div>
 
-      <div className="flex items-center gap-2">
-        {steps.map((step, idx) => {
+      <div
+        role="progressbar"
+        aria-label={`Langkah ${currentStepIndex + 1} dari ${steps.length}`}
+        aria-valuemin={0}
+        aria-valuemax={steps.length}
+        aria-valuenow={currentStepIndex + 1}
+        className="flex items-center gap-1.5"
+      >
+        {steps.map((_, idx) => {
           const isDone = idx < currentStepIndex;
           const isCurrent = idx === currentStepIndex;
-
           return (
-            <div key={idx} className="flex-1 flex items-center gap-2">
-              <div
-                className={`h-2 flex-1 rounded-full transition-all ${
-                  isDone
-                    ? 'bg-success'
-                    : isCurrent
-                    ? 'bg-accent'
-                    : 'bg-surface-3'
-                }`}
-              />
-            </div>
+            <span
+              key={idx}
+              className={`h-2 flex-1 rounded-full ${isDone ? 'bg-success' : isCurrent ? 'h-2.5 bg-accent' : 'bg-surface-3'}`}
+            />
           );
         })}
       </div>
+
+      {next && <p className="text-caption text-text-2">Berikutnya: {next.exerciseName}</p>}
     </div>
   );
 }

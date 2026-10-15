@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { EXERCISE_REFERENCES, type PosePhase } from '@/lib/mediapipe/reference-poses';
 import { POSE_CONNECTIONS, PoseLandmark } from '@/lib/mediapipe/landmarks';
 import { Play, Pause, CheckCircle2, Sparkles, Compass } from 'lucide-react';
+import { useThemePref } from '@/lib/theme/use-theme';
 
 interface ReferencePoseVisualizerProps {
   exerciseId: string;
@@ -22,6 +23,7 @@ export function ReferencePoseVisualizer({
   const [activePhaseIndex, setActivePhaseIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(autoPlayDefault && phases.length > 1);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const theme = useThemePref();
 
   const currentPhase: PosePhase = phases[activePhaseIndex] || phases[0];
 
@@ -39,6 +41,8 @@ export function ReferencePoseVisualizer({
   // Render skeleton pada canvas
   useEffect(() => {
     const canvas = canvasRef.current;
+    // Warna tulang dari token tema (ikut dark/light); fallback = accent dark
+    const accent = canvas ? getComputedStyle(canvas).getPropertyValue('--accent-text').trim() || '#4da3ff' : '#4da3ff';
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
@@ -102,13 +106,13 @@ export function ReferencePoseVisualizer({
       ctx.beginPath();
       ctx.arc(px, py, 6, 0, 2 * Math.PI);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.shadowColor = '#38bdf8';
+      ctx.shadowColor = accent;
       ctx.shadowBlur = 10;
       ctx.fill();
 
       // Border circle
       ctx.lineWidth = 2;
-      ctx.strokeStyle = '#0284c7';
+      ctx.strokeStyle = accent;
       ctx.stroke();
     }
     ctx.restore();
@@ -152,7 +156,7 @@ export function ReferencePoseVisualizer({
       ctx.fillText(text, pillX + 6, pillY);
     }
     ctx.restore();
-  }, [currentPhase]);
+  }, [currentPhase, theme]);
 
   return (
     <div className={`bg-surface border border-separator rounded-lg p-5 md:p-6 text-text shadow-xl ${className}`}>
