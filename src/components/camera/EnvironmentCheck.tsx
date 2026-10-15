@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Sun, Maximize2, ShieldCheck, CheckCircle2, AlertCircle, ArrowRight, RefreshCw } from 'lucide-react';
+import { Sun, Maximize2, ShieldCheck, CheckCircle2, TriangleAlert, RefreshCw } from 'lucide-react';
 import type { ExerciseConfig, TrackingResult } from '@/trackers/types';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Surfaces';
 
 interface EnvironmentCheckProps {
   config: ExerciseConfig;
@@ -12,13 +14,30 @@ interface EnvironmentCheckProps {
   onSkip: () => void;
 }
 
-export function EnvironmentCheck({
-  config,
-  videoRef,
-  trackingResult,
-  onPassed,
-  onSkip,
-}: EnvironmentCheckProps) {
+type CheckState = 'ok' | 'warn' | 'pending';
+
+// Satu baris checklist: ikon status + judul + detail (UI_UX_BRIEF §7.3, checklist ala iOS).
+function CheckRow({ state, icon: Icon, title, detail }: { state: CheckState; icon: React.ComponentType<{ className?: string }>; title: string; detail: string }) {
+  const tone = state === 'ok' ? 'text-success' : state === 'warn' ? 'text-warning' : 'text-text-2';
+  return (
+    <li className="flex items-start gap-3 rounded-md bg-surface-3 p-3.5">
+      <span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-canvas ${tone}`} aria-hidden="true">
+        <Icon className="size-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-headline text-text">{title}</p>
+        <p className="text-footnote text-text-2">{detail}</p>
+      </div>
+      <span className="mt-1 shrink-0" aria-hidden="true">
+        {state === 'ok' && <CheckCircle2 className="size-5 text-success" />}
+        {state === 'warn' && <TriangleAlert className="size-5 text-warning" />}
+        {state === 'pending' && <RefreshCw className="size-5 animate-spin text-accent-text" />}
+      </span>
+    </li>
+  );
+}
+
+export function EnvironmentCheck({ config, videoRef, trackingResult, onPassed, onSkip }: EnvironmentCheckProps) {
   // State 3 indikator
   const [lightingStatus, setLightingStatus] = useState<'checking' | 'good' | 'dim' | 'glare'>('checking');
   const [lightingScore, setLightingScore] = useState<number>(0);
@@ -95,14 +114,11 @@ export function EnvironmentCheck({
     return () => cancelAnimationFrame(animId);
   }, [videoRef, trackingResult]);
 
+  const allGood = lightingStatus === 'good' && framingStatus === 'good' && aiLockStatus === 'locked';
+
   // Evaluasi kelulusan & auto-trigger countdown
   useEffect(() => {
-    const isAllGood =
-      lightingStatus === 'good' &&
-      framingStatus === 'good' &&
-      aiLockStatus === 'locked';
-
-    if (isAllGood) {
+    if (allGood) {
       consecutivePassCountRef.current++;
       // Butuh sekitar 1 detik stabil (30 fps ~ 30 frames)
       if (consecutivePassCountRef.current >= 30) {
@@ -115,159 +131,68 @@ export function EnvironmentCheck({
       consecutivePassCountRef.current = 0;
       setReadySeconds(null);
     }
-  }, [lightingStatus, framingStatus, aiLockStatus, onPassed]);
+  }, [allGood, onPassed]);
+
+  const lightState: CheckState = lightingStatus === 'good' ? 'ok' : lightingStatus === 'checking' ? 'pending' : 'warn';
+  const lightDetail =
+    lightingStatus === 'good'
+      ? `Kecerahan ${lightingScore}%. Sudah pas untuk pelacakan.`
+      : lightingStatus === 'dim'
+        ? `Ruangan agak gelap (${lightingScore}%). Nyalakan lampu agar tubuh terlihat jelas.`
+        : lightingStatus === 'glare'
+          ? 'Terlalu silau. Hindari sumber cahaya di belakang kamu.'
+          : 'Menganalisis kecerahan video...';
 
   return (
-    <div className="w-full max-w-xl mx-auto bg-slate-900/90 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-2xl backdrop-blur-md animate-fade-in">
-      {/* Header */}
-      <div className="text-center space-y-1.5">
-        <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 inline-block">
-          Pemeriksaan Kesiapan Kamera & Ruangan
-        </span>
-        <h2 className="text-xl font-bold text-slate-100">Setup Posisi Latihan</h2>
-        <p className="text-xs text-slate-400">
-          Sistem memastikan tubuh Anda terlihat optimal oleh AI vision sebelum memulai.
-        </p>
-      </div>
+    <Card className="mx-auto max-w-xl space-y-6 p-5 sm:p-6">
+      <header className="space-y-1.5 text-center">
+        <p className="text-caption font-semibold uppercase tracking-wide text-accent-text">Pemeriksaan kesiapan</p>
+        <h2 className="text-title-2 text-text">Posisi kamu sudah pas?</h2>
+        <p className="text-callout text-text-2">Cek ini memastikan tubuh kamu terlihat jelas sebelum latihan mulai.</p>
+      </header>
 
-      {/* 3 Status Cards */}
-      <div className="space-y-3">
-        {/* 1. Pencahayaan */}
-        <div
-          className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-3 ${
-            lightingStatus === 'good'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-              : lightingStatus === 'dim'
-              ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
-              : 'bg-slate-800/60 border-slate-700/60 text-slate-300'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={`p-2 rounded-xl mt-0.5 ${
-                lightingStatus === 'good'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-amber-500/20 text-amber-400'
-              }`}
-            >
-              <Sun className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold flex items-center gap-2">
-                <span>Pencahayaan Ruangan</span>
-                <span className="text-xs font-mono opacity-75">({lightingScore}%)</span>
-              </div>
-              <p className="text-xs opacity-80 mt-0.5">
-                {lightingStatus === 'good' && 'Kecerahan optimal untuk pelacakan pose.'}
-                {lightingStatus === 'dim' && 'Ruangan agak gelap. Nyalakan lampu agar tubuh terlihat jelas.'}
-                {lightingStatus === 'glare' && 'Terlalu banyak cahaya silau/backlight di belakang Anda.'}
-                {lightingStatus === 'checking' && 'Menganalisis kecerahan video...'}
-              </p>
-            </div>
-          </div>
-          <div className="shrink-0">
-            {lightingStatus === 'good' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-amber-400" />
-            )}
-          </div>
-        </div>
-
-        {/* 2. Framing & Jarak */}
-        <div
-          className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-3 ${
+      <ul className="space-y-2.5">
+        <CheckRow state={lightState} icon={Sun} title="Pencahayaan ruangan" detail={lightDetail} />
+        <CheckRow
+          state={framingStatus === 'good' ? 'ok' : 'warn'}
+          icon={Maximize2}
+          title="Jarak dan posisi tubuh"
+          detail={
             framingStatus === 'good'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-              : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={`p-2 rounded-xl mt-0.5 ${
-                framingStatus === 'good'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-amber-500/20 text-amber-400'
-              }`}
-            >
-              <Maximize2 className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">Jarak & Posisi Tubuh</div>
-              <p className="text-xs opacity-80 mt-0.5">
-                {framingStatus === 'good' && 'Seluruh sendi tubuh masuk ke dalam frame kamera.'}
-                {framingStatus !== 'good' &&
-                  `Mundur sekitar 2 meter dan posisikan tubuh dari arah ${
-                    config.cameraOrientation === 'side' ? 'SAMPING' : 'DEPAN'
-                  }.`}
-              </p>
-            </div>
-          </div>
-          <div className="shrink-0">
-            {framingStatus === 'good' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-amber-400" />
-            )}
-          </div>
-        </div>
+              ? 'Seluruh sendi tubuh masuk ke frame kamera.'
+              : `Mundur sekitar 2 meter dan posisikan tubuh dari arah ${config.cameraOrientation === 'side' ? 'samping' : 'depan'}.`
+          }
+        />
+        <CheckRow
+          state={aiLockStatus === 'locked' ? 'ok' : 'pending'}
+          icon={ShieldCheck}
+          title="Pelacakan tubuh"
+          detail={aiLockStatus === 'locked' ? 'Kerangka tubuh terkunci dan siap menghitung rep.' : 'Menyelaraskan 33 titik tubuh kamu...'}
+        />
+      </ul>
 
-        {/* 3. Penguncian AI Vision */}
-        <div
-          className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-3 ${
-            aiLockStatus === 'locked'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
-              : 'bg-slate-800/60 border-slate-700/60 text-slate-300'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <div
-              className={`p-2 rounded-xl mt-0.5 ${
-                aiLockStatus === 'locked'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'bg-blue-500/20 text-blue-400'
-              }`}
-            >
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold">Model Vision AI (MediaPipe)</div>
-              <p className="text-xs opacity-80 mt-0.5">
-                {aiLockStatus === 'locked'
-                  ? 'Skeleton terkunci stabil dan siap menghitung repetisi!'
-                  : 'Menyelaraskan 33 landmark tubuh Anda...'}
-              </p>
-            </div>
-          </div>
-          <div className="shrink-0">
-            {aiLockStatus === 'locked' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-            ) : (
-              <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Auto-Ready Progress Callout */}
       {readySeconds !== null && (
-        <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-center animate-pulse">
-          <p className="text-xs font-bold text-emerald-300">
-            🎉 Posisi Sempurna! Memulai sesi latihan dalam {readySeconds} detik...
-          </p>
-        </div>
+        <p role="status" className="rounded-md bg-success-soft p-3 text-center text-subhead font-semibold text-success">
+          Posisi pas. Mulai otomatis dalam {readySeconds} detik.
+        </p>
       )}
 
-      {/* Actions */}
-      <div className="flex items-center gap-3 pt-2">
-        <button
-          onClick={onSkip}
-          className="w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/25"
-        >
-          <span>Lanjut ke Latihan</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        {allGood ? (
+          <>
+            <Button size="lg" className="w-full" onClick={onPassed}>
+              Mulai sekarang
+            </Button>
+            <Button variant="secondary" size="lg" className="w-full sm:w-auto" onClick={onSkip}>
+              Lewati
+            </Button>
+          </>
+        ) : (
+          <Button variant="secondary" size="lg" className="w-full" onClick={onSkip}>
+            Lewati pemeriksaan
+          </Button>
+        )}
       </div>
-    </div>
+    </Card>
   );
 }

@@ -1,4 +1,4 @@
-import type { NormalizedLandmark, Point2D } from './types';
+import type { FrameSize, NormalizedLandmark, Point2D } from './types';
 
 /**
  * 1€ (One-Euro) Filter: Adaptive Low-Pass Filter untuk data sinyal real-time.
@@ -169,4 +169,74 @@ export function checkLandmarkVisibility(
  */
 export function distance2D(a: Point2D, b: Point2D): number {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+/** Default kamera getUserMedia (640x480). Dipakai bila pemanggil tidak memberi ukuran frame. */
+export const DEFAULT_FRAME: FrameSize = { width: 640, height: 480 };
+
+/**
+ * Mengubah landmark ter-normalisasi (0..1) menjadi ruang piksel.
+ * Tanpa ini, 1 satuan x dan 1 satuan y berbeda panjangnya (640 vs 480 px) dan sudut terdistorsi.
+ */
+export function toPixelSpace(
+  landmarks: NormalizedLandmark[],
+  frame: FrameSize = DEFAULT_FRAME
+): NormalizedLandmark[] {
+  return landmarks.map((lm) => ({
+    x: lm.x * frame.width,
+    y: lm.y * frame.height,
+    z: lm.z * frame.width,
+    visibility: lm.visibility,
+  }));
+}
+
+/**
+ * Deviasi bertanda titik tengah (pinggul) dari garis bahu-kaki, dinormalisasi panjang tubuh.
+ * Positif = pinggul lebih rendah di layar (melorot / sag), negatif = lebih tinggi (pike).
+ * Input harus sudah di ruang piksel.
+ */
+export function bodyDeviation(shoulder: Point2D, hip: Point2D, ankle: Point2D): number {
+  const dx = ankle.x - shoulder.x;
+  const dy = ankle.y - shoulder.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-6) return 0;
+  const t = ((hip.x - shoulder.x) * dx + (hip.y - shoulder.y) * dy) / lenSq;
+  const lineY = shoulder.y + dy * t;
+  const bodyLen = Math.sqrt(lenSq);
+  return (hip.y - lineY) / bodyLen;
+}
+
+/** Sudut (derajat, 0-90) segmen a->b terhadap garis horizontal. 0 = mendatar, 90 = tegak. */
+export function angleFromHorizontal(a: Point2D, b: Point2D): number {
+  const dx = Math.abs(b.x - a.x);
+  const dy = Math.abs(b.y - a.y);
+  return Math.atan2(dy, dx) * (180 / Math.PI);
+}
+
+/** Sudut (derajat, 0-180) antara dua vektor. */
+export function angleBetweenVectors(v1: Point2D, v2: Point2D): number {
+  const dot = v1.x * v2.x + v1.y * v2.y;
+  const mag = Math.sqrt(v1.x ** 2 + v1.y ** 2) * Math.sqrt(v2.x ** 2 + v2.y ** 2) + 1e-6;
+  const cos = Math.max(-1, Math.min(1, dot / mag));
+  return Math.acos(cos) * (180 / Math.PI);
+}
+
+/**
+ * Pemilih sisi tubuh untuk tampak samping dengan histeresis: sisi baru hanya dipilih
+ * jika visibility-nya unggul lebih dari `margin` dibanding sisi aktif.
+ */
+export class SideSelector {
+  private active: 'left' | 'right' = 'left';
+
+  constructor(private readonly margin: number = 0.15) {}
+
+  choose(leftVis: number, rightVis: number): 'left' | 'right' {
+    if (this.active === 'left' && rightVis - leftVis > this.margin) this.active = 'right';
+    else if (this.active === 'right' && leftVis - rightVis > this.margin) this.active = 'left';
+    return this.active;
+  }
+
+  reset(): void {
+    this.active = 'left';
+  }
 }

@@ -1,24 +1,13 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import {
-  Trophy,
-  Flame,
-  RotateCcw,
-  History,
-  ArrowRight,
-  Award,
-  AlertTriangle,
-  CheckCircle2,
-  Lightbulb,
-  Scale,
-  FileDown,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileDown, History, Lightbulb, RotateCcw } from 'lucide-react';
 import type { ExerciseConfig } from '@/trackers/types';
-import Link from 'next/link';
 import { ShareButton } from '@/components/workout/ShareButton';
 import { generateWorkoutPDFReport } from '@/lib/reporting/pdf-generator';
+import { Button } from '@/components/ui/Button';
+import { Card, Stat } from '@/components/ui/Surfaces';
 
 export interface FaultSummaryItem {
   name: string;
@@ -32,22 +21,31 @@ interface SessionSummaryProps {
   cleanReps?: number;
   holdDurationSec: number;
   sessionDurationSec: number;
+  /** Undefined = belum ada data. Tampil "—", bukan angka karangan (UI_UX_BRIEF §2.5 #29). */
   formScore?: number;
   symmetryScore?: number;
   tempoRatio?: string;
   avgTutSec?: number;
   caloriesBurned?: number;
   faultsSummary?: FaultSummaryItem[];
+  /** Konfeti hanya saat target tercapai atau ada pencapaian baru. */
+  celebrate?: boolean;
   onRestart: () => void;
   onSave?: () => Promise<void>;
 }
 
 const COACH_TIPS: Record<string, string> = {
-  pushup: 'Kunci otot perut dan pantat (glutes) seperti posisi plank agar pinggul tidak turun mendahului dada.',
-  squat: 'Arahkan pinggul ke belakang seperti menduduki kursi dan pertahankan pandangan lurus ke depan.',
-  situp: 'Fokus angkat tubuh dengan kontraksi otot perut, bukan dengan menarik leher ke depan.',
-  jumping_jack: 'Jaga ritme lompatan agar tangan dan kaki membuka serta menutup secara simetris bersamaan.',
+  pushup: 'Kunci otot perut dan pantat seperti posisi plank agar pinggul tidak turun mendahului dada.',
+  squat: 'Arahkan pinggul ke belakang seperti menduduki kursi dan jaga pandangan tetap ke depan.',
+  situp: 'Angkat tubuh dengan kontraksi otot perut, bukan dengan menarik leher ke depan.',
+  jumping_jack: 'Jaga ritme agar tangan dan kaki membuka serta menutup bersamaan.',
   plank: 'Bernapas teratur dan dorong lantai menjauh dari bahu untuk menstabilkan tulang belikat.',
+};
+
+const formatMinSec = (sec: number) => {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m > 0 ? `${m} mnt ${s} dtk` : `${s} dtk`;
 };
 
 export function SessionSummary({
@@ -56,247 +54,156 @@ export function SessionSummary({
   cleanReps,
   holdDurationSec,
   sessionDurationSec,
-  formScore = 92,
-  symmetryScore = 95,
+  formScore,
+  symmetryScore,
   tempoRatio,
   avgTutSec,
   caloriesBurned = 0,
   faultsSummary = [],
+  celebrate = false,
   onRestart,
 }: SessionSummaryProps) {
   const isTimer = config.type === 'timer';
+  const kcal = caloriesBurned > 0 ? caloriesBurned : Math.max(1, Math.round(sessionDurationSec * 0.14));
+  const pace = sessionDurationSec > 0 && !isTimer ? ((reps / sessionDurationSec) * 60).toFixed(1) : null;
+  const coachTip = COACH_TIPS[config.id] || 'Lakukan pemanasan dan pendinginan setiap kali berlatih.';
+  const cleanPct = cleanReps !== undefined && reps > 0 ? (cleanReps / reps) * 100 : null;
 
   useEffect(() => {
+    if (!celebrate) return;
     try {
-      confetti({
-        particleCount: 85,
-        spread: 75,
-        origin: { y: 0.6 },
-      });
+      confetti({ particleCount: 85, spread: 75, origin: { y: 0.6 }, disableForReducedMotion: true });
     } catch {
-      // Ignore
+      // Konfeti hanya dekorasi; abaikan kegagalan
     }
-  }, []);
-
-  const formatMinSec = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s} detik`;
-  };
-
-  const pace = sessionDurationSec > 0 && !isTimer
-    ? ((reps / sessionDurationSec) * 60).toFixed(1)
-    : null;
-
-  const coachTip = COACH_TIPS[config.id] || 'Lakukan pemanasan dan pendinginan setiap kali berlatih.';
+  }, [celebrate]);
 
   return (
-    <div className="w-full max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 text-white shadow-2xl text-center animate-fade-in space-y-6">
-      <div>
-        {/* Trophy Badge */}
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500/20 to-yellow-500/20 border border-yellow-500/30 text-yellow-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-yellow-500/10">
-          <Trophy className="w-10 h-10" />
-        </div>
-
-        <span className="text-xs font-semibold text-blue-400 uppercase tracking-widest block mb-1">
-          Sesi Latihan Selesai
+    <article className="mx-auto w-full max-w-lg space-y-5 text-center animate-enter">
+      <header className="space-y-3">
+        <span className="mx-auto grid size-16 place-items-center rounded-full bg-success-soft text-success">
+          <CheckCircle2 className="size-9" aria-hidden="true" />
         </span>
-        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-100">
-          {config.name}
-        </h2>
-      </div>
+        <p className="text-caption font-semibold uppercase tracking-wide text-accent-text">Latihan selesai</p>
+        <h2 className="text-title-1 text-text">{config.name}</h2>
+      </header>
 
-      {/* Grid Metrik Utama */}
-      <div className="grid grid-cols-2 gap-3 text-left">
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4">
-          <span className="text-xs text-slate-400 font-semibold block mb-1">
-            {isTimer ? 'Waktu Hold' : 'Total Repetisi'}
-          </span>
-          <div className="text-3xl font-extrabold text-blue-400 font-mono">
-            {isTimer ? formatMinSec(holdDurationSec) : reps}
+      <Card className="grid grid-cols-2 gap-5 text-left">
+        <Stat label={isTimer ? 'Waktu tahan' : 'Repetisi'} value={isTimer ? formatMinSec(holdDurationSec) : reps} tone="reps" size="l" />
+        <Stat label="Durasi" value={formatMinSec(sessionDurationSec)} size="m" />
+        <Stat label="Form" value={formScore ?? null} unit={formScore !== undefined ? '%' : undefined} tone="form" />
+        <Stat label="Simetri" value={symmetryScore ?? null} unit={symmetryScore !== undefined ? '%' : undefined} tone="sym" />
+      </Card>
+
+      {cleanPct !== null && (
+        <Card className="space-y-2 text-left">
+          <div className="flex h-2 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${cleanReps} rep bersih, ${reps - (cleanReps ?? 0)} perlu perbaikan`}>
+            <div className="h-full bg-success" style={{ width: `${cleanPct}%` }} />
+            <div className="h-full bg-danger" style={{ width: `${100 - cleanPct}%` }} />
           </div>
-          {!isTimer && cleanReps !== undefined && (
-            <span className="text-xs text-emerald-400 font-semibold block mt-1">
-              {cleanReps} Clean / {reps - cleanReps} Perlu Perbaikan
-            </span>
-          )}
-        </div>
+          <p className="text-footnote text-text-2">
+            <span className="num font-semibold text-success">{cleanReps}</span> rep bersih ·{' '}
+            <span className="num font-semibold text-danger">{reps - (cleanReps ?? 0)}</span> perlu perbaikan
+          </p>
+        </Card>
+      )}
 
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4">
-          <span className="text-xs text-slate-400 font-semibold block mb-1">
-            Durasi Total
-          </span>
-          <div className="text-3xl font-extrabold text-slate-200 font-mono">
-            {formatMinSec(sessionDurationSec)}
+      <Card className="flex items-center justify-between gap-4 text-left">
+        <Stat label="Estimasi kalori*" value={kcal} unit="kkal" tone="kcal" />
+        {tempoRatio && (
+          <div className="text-right">
+            <p className="text-caption text-text-3">Ritme tempo</p>
+            <p className="num text-subhead font-semibold text-text">{tempoRatio}</p>
+            {avgTutSec !== undefined && <p className="num text-caption text-text-3">{avgTutSec.toFixed(1)} dtk per rep</p>}
           </div>
-          {pace && (
-            <span className="text-xs text-slate-400 font-medium block mt-1">
-              Pace: {pace} reps/menit
-            </span>
-          )}
-        </div>
+        )}
+      </Card>
+      <p className="text-caption text-text-3">*Perkiraan, bukan ukuran medis.{pace && ` Kecepatan ${pace} rep per menit.`}</p>
 
-        {/* Kualitas Form */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-400 font-semibold block mb-1">
-              Kualitas Form
-            </span>
-            <div className="text-2xl font-extrabold text-emerald-400 font-mono flex items-center gap-1">
-              <Award className="w-5 h-5 text-emerald-400" />
-              <span>{formScore}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Simetri Bilateral Tubuh */}
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <span className="text-xs text-slate-400 font-semibold block mb-1">
-              Simetri Tubuh
-            </span>
-            <div className="text-2xl font-extrabold text-teal-400 font-mono flex items-center gap-1">
-              <Scale className="w-5 h-5 text-teal-400" />
-              <span>{symmetryScore}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Kalori Terbakar (Lebar Penuh) */}
-        <div className="col-span-2 bg-slate-800/60 border border-slate-700/50 rounded-2xl p-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400">
-              <Flame className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs text-slate-400 font-semibold block">Estimasi Kalori</span>
-              <span className="text-lg font-bold text-orange-400 font-mono">
-                {caloriesBurned > 0 ? caloriesBurned : Math.max(1, Math.round(sessionDurationSec * 0.14))} kcal
-              </span>
-            </div>
-          </div>
-          {tempoRatio && (
-            <div className="text-right">
-              <span className="text-[10px] text-slate-400 font-semibold block">Ritme Tempo</span>
-              <span className="text-xs font-bold text-indigo-400 font-mono">{tempoRatio}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ⚠️ ANALISIS KESALAHAN GERAKAN */}
-      <div className="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-4 text-left space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-          <AlertTriangle className="w-4 h-4 text-amber-400" />
-          <span>Analisis Kesalahan Postur</span>
-        </div>
-
+      {/* Analisis form */}
+      <Card className="space-y-3 text-left">
+        <h3 className="text-headline text-text">Analisis form</h3>
         {faultsSummary.length === 0 ? (
-          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
+          <div className="flex items-start gap-3 rounded-md bg-success-soft p-3">
+            <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden="true" />
             <div>
-              <strong className="block font-semibold">Postur Sempurna!</strong>
-              Tidak terdeteksi kesalahan form signifikan selama sesi ini. Pertahankan teknik Anda!
+              <p className="text-subhead font-semibold text-text">Form bersih</p>
+              <p className="text-footnote text-text-2">Tidak ada kesalahan berarti yang terdeteksi di sesi ini.</p>
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <ul className="space-y-2">
             {faultsSummary.map((fault, i) => (
-              <div
-                key={i}
-                className="p-3 rounded-xl bg-red-950/30 border border-red-500/30 text-xs text-slate-300 flex items-start justify-between gap-3"
-              >
-                <div>
-                  <span className="font-bold text-red-300 block mb-0.5">
-                    {fault.name} ({fault.count}x terdeteksi)
-                  </span>
-                  <p className="text-slate-400 text-xs leading-relaxed">{fault.description}</p>
+              <li key={i} className="flex items-start gap-3 rounded-md bg-danger-soft p-3">
+                <AlertTriangle className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-subhead font-semibold text-text">
+                    {fault.name} <span className="num text-text-2">({fault.count}x)</span>
+                  </p>
+                  <p className="text-footnote text-text-2">{fault.description}</p>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-[10px] font-bold shrink-0">
-                  Perbaiki
-                </span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-
-        {/* Saran Pelatih / Coach Advice */}
-        <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-200 text-xs">
-          <Lightbulb className="w-4 h-4 shrink-0 text-blue-400 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-md bg-accent-soft p-3">
+          <Lightbulb className="mt-0.5 size-5 shrink-0 text-accent-text" aria-hidden="true" />
           <div>
-            <span className="font-bold text-blue-300 block mb-0.5">Rekomendasi Pelatih:</span>
-            <span>{coachTip}</span>
+            <p className="text-subhead font-semibold text-accent-text">Saran pelatih</p>
+            <p className="text-footnote text-text">{coachTip}</p>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* Tombol Unduh Laporan PDF Biomekanika */}
-      <button
-        type="button"
-        onClick={() => {
-          generateWorkoutPDFReport({
+      {/* Aksi: satu primary, satu secondary, sisanya tersier */}
+      <div className="space-y-3 pt-1">
+        <Button href="/workout" size="xl" className="w-full">
+          Selesai
+        </Button>
+        <ShareButton
+          data={{
             exerciseName: config.name,
-            totalReps: reps,
+            reps,
             cleanReps,
             holdDurationSec,
             sessionDurationSec,
-            caloriesBurned: caloriesBurned > 0 ? caloriesBurned : Math.max(1, Math.round(sessionDurationSec * 0.14)),
             formScore,
-            symmetryScore,
-            faultsSummary,
-            tempoRatio,
-            avgTutSec,
-            coachAdvice: coachTip,
-          });
-        }}
-        className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-teal-500/20 transition-all border border-teal-400/30"
-      >
-        <FileDown className="w-4 h-4" />
-        <span>Unduh Laporan Audit PDF Biomekanika</span>
-      </button>
-
-      {/* Tombol Share Prestasi */}
-      <ShareButton
-        data={{
-          exerciseName: config.name,
-          reps,
-          cleanReps,
-          holdDurationSec,
-          sessionDurationSec,
-          formScore,
-          caloriesBurned: caloriesBurned > 0 ? caloriesBurned : Math.max(1, Math.round(sessionDurationSec * 0.14)),
-        }}
-      />
-
-      {/* Tombol Aksi */}
-      <div className="space-y-3 pt-1">
-        <button
-          onClick={onRestart}
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all"
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Ulangi Latihan</span>
-        </button>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Link
-            href="/history"
-            className="py-3.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+            caloriesBurned: kcal,
+          }}
+        />
+        <div className="grid grid-cols-3 gap-2">
+          <Button variant="tertiary" size="md" onClick={onRestart} icon={<RotateCcw className="size-4" aria-hidden="true" />} className="px-2">
+            Ulangi
+          </Button>
+          <Button variant="tertiary" size="md" href="/history" icon={<History className="size-4" aria-hidden="true" />} className="px-2">
+            Riwayat
+          </Button>
+          <Button
+            variant="tertiary"
+            size="md"
+            className="px-2"
+            icon={<FileDown className="size-4" aria-hidden="true" />}
+            onClick={() =>
+              generateWorkoutPDFReport({
+                exerciseName: config.name,
+                totalReps: reps,
+                cleanReps,
+                holdDurationSec,
+                sessionDurationSec,
+                caloriesBurned: kcal,
+                formScore,
+                symmetryScore,
+                faultsSummary,
+                tempoRatio,
+                avgTutSec,
+                coachAdvice: coachTip,
+              })
+            }
           >
-            <History className="w-4 h-4 text-blue-400" />
-            <span>Lihat Riwayat</span>
-          </Link>
-
-          <Link
-            href="/workout"
-            className="py-3.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all"
-          >
-            <span>Pilih Gerakan</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+            PDF
+          </Button>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

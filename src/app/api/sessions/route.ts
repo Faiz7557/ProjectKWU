@@ -1,47 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { sessionPayloadSchema } from '@/lib/sessions/session-schema';
+
+function isSupabaseConfigured(): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return !!supabaseUrl && !supabaseUrl.includes('placeholder');
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const json = await request.json().catch(() => null);
+    const parsed = sessionPayloadSchema.safeParse(json);
 
-    // Validasi payload ketat
-    if (!body || typeof body !== 'object') {
-      return NextResponse.json({ error: 'Body request tidak valid (harus berupa JSON object).' }, { status: 400 });
-    }
-
-    const { exercise, sessionDurationSec, reps, holdDurationSec, formScore, startedAt } = body;
-
-    if (!exercise || typeof exercise !== 'string' || exercise.trim().length === 0) {
-      return NextResponse.json({ error: 'Field "exercise" wajib diisi berupa string non-kosong.' }, { status: 400 });
-    }
-
-    if (typeof sessionDurationSec !== 'number' || isNaN(sessionDurationSec) || sessionDurationSec < 0 || sessionDurationSec > 86400) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Field "sessionDurationSec" wajib berupa angka positif wajar (0 - 86400 detik).' },
+        {
+          error: 'Data sesi tidak valid.',
+          details: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+        },
         { status: 400 }
       );
     }
 
-    if (reps !== undefined && reps !== null && (typeof reps !== 'number' || reps < 0 || !Number.isInteger(reps))) {
-      return NextResponse.json({ error: 'Field "reps" harus berupa integer non-negatif atau null.' }, { status: 400 });
-    }
+    const body = parsed.data;
 
-    if (holdDurationSec !== undefined && holdDurationSec !== null && (typeof holdDurationSec !== 'number' || holdDurationSec < 0)) {
-      return NextResponse.json({ error: 'Field "holdDurationSec" harus berupa angka non-negatif atau null.' }, { status: 400 });
-    }
-
-    if (formScore !== undefined && formScore !== null && (typeof formScore !== 'number' || formScore < 0 || formScore > 100)) {
-      return NextResponse.json({ error: 'Field "formScore" harus bernilai antara 0 hingga 100.' }, { status: 400 });
-    }
-
-    if (startedAt && isNaN(Date.parse(startedAt))) {
-      return NextResponse.json({ error: 'Field "startedAt" harus berupa format timestamp ISO 8601 yang valid.' }, { status: 400 });
-    }
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
-      // Graceful fallback saat Supabase belum terkonfigurasi di env local
+    if (!isSupabaseConfigured()) {
+      // Mode pengembangan lokal: Supabase belum dikonfigurasi.
       return NextResponse.json({
         success: true,
         message: 'Sesi latihan tercatat (Local development mode / Supabase belum dihubungkan).',
@@ -54,33 +38,53 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+    if (!user) {
+      return NextResponse.json({ error: 'Silakan login untuk menyimpan sesi.' }, { status: 401 });
+    }
 
-    const { data, error } = await supabase.from('sessions').insert({
-      user_id: userId,
-      exercise: body.exercise,
-      reps: body.reps ?? null,
-      hold_duration_sec: body.holdDurationSec ?? null,
-      session_duration_sec: body.sessionDurationSec,
-      started_at: body.startedAt || new Date().toISOString(),
-      metadata: body.metadata || {},
-    }).select().single();
+    // upsert + ignoreDuplicates: pengiriman ulang sesi yang sama (clientSessionId) tidak membuat baris ganda.
+    const { data, error } = await supabase
+      .from('sessions')
+      .upsert(
+        {
+          user_id: user.id,
+          client_session_id: body.clientSessionId ?? null,
+          exercise: body.exercise,
+          reps: body.reps ?? null,
+          clean_reps: body.cleanReps ?? null,
+          hold_duration_sec: body.holdDurationSec ?? null,
+          session_duration_sec: body.sessionDurationSec,
+          form_score: body.formScore ?? null,
+          symmetry_score: body.symmetryScore ?? null,
+          calories: body.calories ?? null,
+          faults: body.faults ?? [],
+          started_at: body.startedAt ?? new Date().toISOString(),
+          metadata: body.metadata ?? {},
+        },
+        { onConflict: 'user_id,client_session_id', ignoreDuplicates: true }
+      )
+      .select()
+      .maybeSingle();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[Sessions POST] Gagal menyimpan sesi:', error);
+      return NextResponse.json({ error: 'Gagal menyimpan sesi latihan.' }, { status: 500 });
+    }
+
+    if (!data) {
+      return NextResponse.json({ success: true, duplicate: true }, { status: 200 });
     }
 
     return NextResponse.json({ success: true, session: data }, { status: 201 });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[Sessions POST] Error tidak terduga:', err);
+    return NextResponse.json({ error: 'Terjadi kesalahan pada server.' }, { status: 500 });
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+    if (!isSupabaseConfigured()) {
       return NextResponse.json({
         sessions: [],
         message: 'Supabase URL belum dikonfigurasi di .env.local.',
@@ -113,12 +117,13 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('[Sessions GET] Gagal membaca sesi:', error);
+      return NextResponse.json({ error: 'Gagal membaca riwayat latihan.' }, { status: 500 });
     }
 
     return NextResponse.json({ sessions: data });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[Sessions GET] Error tidak terduga:', err);
+    return NextResponse.json({ error: 'Terjadi kesalahan pada server.' }, { status: 500 });
   }
 }

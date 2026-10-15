@@ -4,8 +4,16 @@ import type {
   ExerciseConfig,
   TrackingResult,
   FormFault,
+  FrameSize,
 } from './types';
-import { calculateAngle, distance2D, checkLandmarkVisibility } from './base-tracker';
+import {
+  calculateAngle,
+  checkLandmarkVisibility,
+  distance2D,
+  toPixelSpace,
+  DEFAULT_FRAME,
+} from './base-tracker';
+import { RepStateMachine, RepAccumulator } from './rep-state-machine';
 
 const L_SHOULDER = 11;
 const R_SHOULDER = 12;
@@ -16,11 +24,12 @@ const R_HIP = 24;
 const L_ANKLE = 27;
 const R_ANKLE = 28;
 
-const ARM_ANGLE_OPEN = 130;    // Lengan diangkat tinggi (> 130°)
-const ARM_ANGLE_CLOSED = 60;   // Lengan di samping badan (< 60°)
-
-const FEET_RATIO_OPEN = 1.5;   // Lebar kaki > 1.5× lebar bahu
-const FEET_RATIO_CLOSED = 1.1; // Kaki merapat < 1.1× lebar bahu
+// Sinyal = -(rata-rata sudut lengan). Tangan di samping ≈ 0-60° (top, nilai -60);
+// tangan di atas kepala ≥ 130° (bottom, nilai -130).
+const ARM_ANGLE_OPEN = 130;
+const ARM_ANGLE_CLOSED = 60;
+const ARM_ASYMMETRY_LIMIT = 35; // derajat selisih kiri-kanan
+const FEET_RATIO_OPEN = 1.5;    // Lebar kaki > 1.5× lebar bahu
 
 export class JumpingJackTracker implements ExerciseTracker {
   readonly config: ExerciseConfig = {
@@ -42,13 +51,15 @@ export class JumpingJackTracker implements ExerciseTracker {
     minVisibility: 0.45,
   };
 
-  private state: 'closed' | 'open' = 'closed';
-  private repCount: number = 0;
-  private cleanRepCount: number = 0;
-  private faults: FormFault[] = [];
-  private currentRepHasFault: boolean = false;
+  private readonly acc = new RepAccumulator(
+    new RepStateMachine({
+      top: -ARM_ANGLE_CLOSED,
+      bottom: -ARM_ANGLE_OPEN,
+      startDescentDelta: 15,
+    })
+  );
 
-  processLandmarks(landmarks: NormalizedLandmark[], timestamp: number): TrackingResult {
+  processLandmarks(landmarks: NormalizedLandmark[], timestamp: number, frame: FrameSize = DEFAULT_FRAME): TrackingResult {
     const { isVisible, avgVisibility } = checkLandmarkVisibility(
       landmarks,
       this.config.requiredLandmarks,
@@ -56,119 +67,111 @@ export class JumpingJackTracker implements ExerciseTracker {
     );
 
     if (!isVisible) {
+      this.acc.markLost(timestamp);
       return {
-        state: this.state,
-        repCount: this.repCount,
-        cleanRepCount: this.cleanRepCount,
+        state: this.stateLabel(),
+        repCount: this.acc.repCount,
+        cleanRepCount: this.acc.cleanRepCount,
         feedback: 'Posisikan seluruh tubuh tampak dari depan',
         angles: {},
         confidence: avgVisibility,
         isTracking: false,
         hasFault: false,
         activeFault: null,
+        formScore: this.acc.formScore(),
       };
     }
+    this.acc.markVisible();
 
-    // 1. Sudut tangan terhadap torso (Hip - Shoulder - Wrist)
-    const leftArmAngle = calculateAngle(landmarks[L_HIP], landmarks[L_SHOULDER], landmarks[L_WRIST]);
-    const rightArmAngle = calculateAngle(landmarks[R_HIP], landmarks[R_SHOULDER], landmarks[R_WRIST]);
-    const avgArmAngle = (leftArmAngle + rightArmAngle) / 2;
+    const p = toPixelSpace(landmarks, frame);
+    const leftArm = calculateAngle(p[L_HIP], p[L_SHOULDER], p[L_WRIST]);
+    const rightArm = calculateAngle(p[R_HIP], p[R_SHOULDER], p[R_WRIST]);
+    const avgArm = (leftArm + rightArm) / 2;
 
-    // 2. Rasio jarak pergelangan kaki terhadap lebar bahu
-    const shoulderWidth = distance2D(landmarks[L_SHOULDER], landmarks[R_SHOULDER]);
-    const ankleDistance = distance2D(landmarks[L_ANKLE], landmarks[R_ANKLE]);
-    const feetRatio = shoulderWidth > 1e-4 ? ankleDistance / shoulderWidth : 0;
+    const shoulderWidth = distance2D(p[L_SHOULDER], p[R_SHOULDER]);
+    const feetRatio = shoulderWidth > 1e-4 ? distance2D(p[L_ANKLE], p[R_ANKLE]) / shoulderWidth : 0;
 
-    let activeFault: FormFault | null = null;
+    const observed: FormFault[] = [];
 
-    // ── ANALISIS KESALAHAN JUMPING JACK ──
-    // Asimetri lengan (satu tangan tertinggal)
-    if (Math.abs(leftArmAngle - rightArmAngle) > 35) {
-      activeFault = {
+    // Lengan asimetris: dinilai per frame, tetapi fault hanya dicatat per rep (deduplikasi).
+    if (Math.abs(leftArm - rightArm) > ARM_ASYMMETRY_LIMIT) {
+      observed.push({
         id: 'asymmetric_arms',
         name: 'Lengan Tidak Simetris',
         description: 'Angkat kedua tangan secara seimbang bersamaan.',
         timestamp,
-        repNumber: this.repCount + 1,
         severity: 'warning',
         bodyPart: 'arms',
-      };
-      this.currentRepHasFault = true;
+      });
     }
 
-    const isArmOpen = avgArmAngle >= ARM_ANGLE_OPEN;
-    const isFeetOpen = feetRatio >= FEET_RATIO_OPEN;
+    // Kaki tidak dibuka penuh saat tangan sudah di atas.
+    if (avgArm >= ARM_ANGLE_OPEN - 10 && feetRatio < FEET_RATIO_OPEN) {
+      observed.push({
+        id: 'feet_not_open',
+        name: 'Kaki Tidak Dibuka Penuh',
+        description: 'Buka kaki lebih lebar saat melompat.',
+        timestamp,
+        severity: 'warning',
+        bodyPart: 'feet',
+      });
+    }
 
-    const isArmClosed = avgArmAngle <= ARM_ANGLE_CLOSED;
-    const isFeetClosed = feetRatio <= FEET_RATIO_CLOSED;
+    const partialFault: FormFault = {
+      id: 'incomplete_jack',
+      name: 'Lengan Tidak Terangkat Penuh',
+      description: 'Angkat kedua tangan lebih tinggi ke atas kepala.',
+      timestamp,
+      severity: 'warning',
+      bodyPart: 'arms',
+    };
+
+    const { event, faults: closed } = this.acc.update(-avgArm, timestamp, observed, partialFault);
+    const activeFault = observed[0] ?? null;
 
     let feedback: string | undefined;
-
-    if (isArmOpen && isFeetOpen) {
-      if (this.state !== 'open') {
-        this.state = 'open';
-      }
-      feedback = activeFault ? activeFault.description : 'Bagus! Lompat rapatkan kembali';
-    } else if (isArmClosed && isFeetClosed) {
-      if (this.state === 'open') {
-        this.repCount++;
-
-        if (this.currentRepHasFault) {
-          if (activeFault) {
-            this.faults.push(activeFault);
-          }
-        } else {
-          this.cleanRepCount++;
-        }
-
-        this.state = 'closed';
-        this.currentRepHasFault = false;
-        feedback = activeFault ? `Rep ${this.repCount}: ${activeFault.name}` : 'Rep jumping jack sempurna!';
-      }
+    if (event) {
+      feedback = event.kind === 'partial'
+        ? 'Rep belum dihitung: angkat tangan lebih tinggi'
+        : closed.length ? `Rep ${this.acc.repCount}: ${closed[0].name}` : 'Rep jumping jack sempurna!';
+    } else if (activeFault) {
+      feedback = activeFault.description;
     } else {
-      if (this.state === 'closed') {
-        if (!isArmOpen && isFeetOpen) {
-          feedback = 'Angkat kedua tangan lebih tinggi ke atas kepala';
-        } else if (isArmOpen && !isFeetOpen) {
-          feedback = 'Buka kedua kaki lebih lebar saat melompat';
-        } else {
-          feedback = 'Lompat buka tangan dan kaki bersamaan';
-        }
-      } else {
-        feedback = 'Rapatkan tangan dan kaki kembali ke posisi awal';
-      }
+      feedback = this.acc.rsm.currentPhase === 'top' ? 'Lompat buka tangan dan kaki bersamaan' : 'Rapatkan tangan dan kaki kembali ke posisi awal';
     }
 
     return {
-      state: this.state,
-      repCount: this.repCount,
-      cleanRepCount: this.cleanRepCount,
+      state: this.stateLabel(),
+      repCount: this.acc.repCount,
+      cleanRepCount: this.acc.cleanRepCount,
       feedback,
       angles: {
-        leftArm: leftArmAngle,
-        rightArm: rightArmAngle,
+        leftArm,
+        rightArm,
         feetRatio: Number(feetRatio.toFixed(2)),
       },
       confidence: avgVisibility,
       isTracking: true,
       hasFault: activeFault !== null,
       activeFault,
+      lastRep: event ?? undefined,
+      formScore: this.acc.formScore(),
     };
   }
 
   getFaults(): FormFault[] {
-    return this.faults;
+    return this.acc.faults;
   }
 
   getCleanRepCount(): number {
-    return this.cleanRepCount;
+    return this.acc.cleanRepCount;
   }
 
   reset(): void {
-    this.state = 'closed';
-    this.repCount = 0;
-    this.cleanRepCount = 0;
-    this.faults = [];
-    this.currentRepHasFault = false;
+    this.acc.reset();
+  }
+
+  private stateLabel(): string {
+    return this.acc.rsm.currentPhase === 'top' ? 'closed' : 'open';
   }
 }

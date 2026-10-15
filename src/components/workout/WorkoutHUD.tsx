@@ -1,26 +1,33 @@
 'use client';
 
-import React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ExerciseConfig, TrackingResult, BilateralSymmetry } from '@/trackers/types';
 import type { TempoState } from '@/lib/tempo/tempo-tracker';
 import type { GestureDetectionResult } from '@/lib/gestures/detector';
 import { SymmetryIndicator } from './SymmetryIndicator';
+import { ACTIVE_STATES, stateLabel } from './state-labels';
+import { Button, IconButton } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
+import { Toggle } from '@/components/ui/Controls';
+import { Badge, ProgressRing } from '@/components/ui/Surfaces';
 import {
-  Play,
-  Pause,
-  RotateCcw,
+  AlertTriangle,
+  BellRing,
   Check,
   Clock,
-  Sparkles,
-  Volume2,
-  VolumeX,
-  AlertTriangle,
-  UserCheck,
   Ghost,
-  BellRing,
   Gauge,
   Hand,
   Mic,
+  Pause,
+  Play,
+  RotateCcw,
+  SlidersHorizontal,
+  Sparkles,
+  TriangleAlert,
+  UserCheck,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 interface WorkoutHUDProps {
@@ -76,313 +83,217 @@ export function WorkoutHUD({
   onFinish,
   onOpenReference,
 }: WorkoutHUDProps) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [confirm, setConfirm] = useState<'reset' | 'finish' | null>(null);
+  const repRef = useRef<HTMLSpanElement>(null);
+  const prevReps = useRef(0);
+
   const isTimer = config.type === 'timer';
   const reps = trackingResult?.repCount ?? 0;
   const holdDuration = trackingResult?.holdDuration ?? 0;
   const currentVal = isTimer ? holdDuration : reps;
   const state = trackingResult?.state ?? 'idle';
+  const fault = trackingResult?.activeFault;
   const feedback = trackingResult?.feedback;
+  const gesturePct = gestureResult ? Math.round(gestureResult.progress * 100) : 0;
+  const gestureActive = !!gestureResult && gestureResult.activeGesture !== 'none';
 
-  const targetProgress =
-    targetValue && targetValue > 0
-      ? Math.min(100, Math.round((currentVal / targetValue) * 100))
-      : null;
+  const targetProgress = targetValue && targetValue > 0 ? Math.min(100, Math.round((currentVal / targetValue) * 100)) : null;
+
+  // Denyut rep: scale 1 -> 1.12 -> 1 lewat WAAPI (native, tanpa menunggu re-render React).
+  // Bunyi beep dan haptic dipicu di handler sesi pada frame yang sama.
+  useEffect(() => {
+    if (isTimer) return;
+    if (reps === prevReps.current) return;
+    prevReps.current = reps;
+    const el = repRef.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.animate(
+      [{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }],
+      { duration: 450, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
+    );
+  }, [reps, isTimer]);
+
+  const requestReset = () => (reps > 0 ? setConfirm('reset') : onReset());
+  const requestFinish = () => (reps > 0 ? setConfirm('finish') : onFinish());
+  const runConfirmed = () => {
+    if (confirm === 'reset') onReset();
+    if (confirm === 'finish') onFinish();
+    setConfirm(null);
+  };
+
+  // Tone feedback slot: fault (danger) > coaching (accent) > netral.
+  const slotTone = fault
+    ? 'border-danger/30 bg-danger-soft text-danger'
+    : feedback
+      ? 'border-accent-text/30 bg-accent-soft text-accent-text'
+      : 'border-separator bg-surface text-text-2';
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-3 text-left">
-      {/* Active Voice Command Banner */}
-      {lastVoiceCommand && (
-        <div className="bg-rose-500/20 border border-rose-400/50 rounded-2xl p-2.5 flex items-center justify-between gap-2 text-xs text-rose-200 shadow-lg shadow-rose-500/10 animate-fade-in">
-          <div className="flex items-center gap-2">
-            <Mic className="w-4 h-4 text-rose-400 animate-pulse" />
-            <span className="font-bold">Perintah Suara:</span>
-            <span className="font-mono uppercase font-black text-rose-300">&ldquo;{lastVoiceCommand}&rdquo;</span>
+    <div className="mx-auto w-full max-w-2xl space-y-4 text-left">
+      {/* Metrik utama: angka besar dan target */}
+      <section aria-label="Hasil latihan" className="rounded-xl bg-surface p-5 shadow-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-subhead text-text-2">{isTimer ? 'Durasi tahan' : 'Repetisi'}</p>
+            <p className="mt-1 flex items-baseline gap-2">
+              <span ref={repRef} className="num inline-block origin-center text-metric-xl text-text">
+                {isTimer ? formatDuration(holdDuration) : reps}
+              </span>
+              {!isTimer && <span className="text-headline text-text-2">rep</span>}
+            </p>
           </div>
-          <span className="text-[10px] text-rose-300/80 font-medium">Dieksekusi</span>
-        </div>
-      )}
 
-      {/* Active Gesture Detection Banner */}
-      {gestureResult && gestureResult.activeGesture !== 'none' && (
-        <div className="bg-blue-600/20 border border-blue-400/50 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs text-blue-200 shadow-lg shadow-blue-500/10 animate-pulse">
-          <div className="flex items-center gap-2">
-            <Hand className="w-4 h-4 text-blue-400 animate-bounce" />
-            <span className="font-bold">{gestureResult.label || 'Gestur Tangan Terdeteksi'}</span>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <Badge tone={ACTIVE_STATES.has(state) ? 'success' : 'accent'}>{stateLabel(state)}</Badge>
+            <IconButton label="Opsi latihan" icon={<SlidersHorizontal className="size-5" aria-hidden="true" />} onClick={() => setSheetOpen(true)} />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-20 h-2 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-400 transition-all duration-100"
-                style={{ width: `${Math.round(gestureResult.progress * 100)}%` }}
-              />
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          {targetProgress !== null ? (
+            <div className="flex items-center gap-3">
+              <ProgressRing value={targetProgress / 100} size={64} stroke={7} tone="reps" label="Pencapaian target">
+                <span className="num text-subhead font-bold text-text">{targetProgress}%</span>
+              </ProgressRing>
+              <div className="text-footnote text-text-2">
+                Target {targetValue}
+                {isTimer ? ' detik' : ' rep'}
+              </div>
             </div>
-            <span className="font-mono font-bold text-blue-300">
-              {Math.round(gestureResult.progress * 100)}%
+          ) : (
+            <span />
+          )}
+          {gestureActive && (
+            <Badge tone="accent" icon={<Hand className="size-3.5" />}>
+              {gestureResult?.label || 'Gestur'} {gesturePct}%
+            </Badge>
+          )}
+        </div>
+      </section>
+
+      {/* Slot umpan balik: tinggi tetap agar layout tidak bergeser (UI_UX_BRIEF §2.4 #17) */}
+      <div role="status" aria-live="polite" className={`flex min-h-16 items-center gap-3 rounded-md border px-4 py-3 text-callout transition-colors duration-200 ${slotTone}`}>
+        {fault ? (
+          <>
+            <AlertTriangle className="size-5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0">
+              <strong className="block text-subhead font-semibold">Perbaiki form: {fault.name}</strong>
+              <span className="text-footnote">{fault.description}</span>
             </span>
-          </div>
-        </div>
-      )}
-
-      {/* HUD Bar Metrik Utama */}
-      <div className="grid grid-cols-3 gap-3">
-        {/* Metrik Utama: Reps atau Hold Timer */}
-        <div className="col-span-2 bg-slate-900/90 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between shadow-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                  {isTimer ? 'Durasi Hold' : 'Total Repetisi'}
-                </span>
-                {targetValue && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
-                    🎯 Target: {targetValue} {isTimer ? 's' : ''}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 font-mono">
-                  {isTimer ? formatDuration(holdDuration) : reps}
-                </span>
-                <span className="text-sm font-semibold text-slate-400">
-                  {isTimer ? 'detik' : 'reps'}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Posisi
-              </span>
-              <span
-                className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                  state === 'down' ||
-                  state === 'squatting' ||
-                  state === 'crunched' ||
-                  state === 'open' ||
-                  state === 'holding'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                }`}
-              >
-                {state}
-              </span>
-            </div>
-          </div>
-
-          {/* Progress Bar Target */}
-          {targetProgress !== null && (
-            <div className="mt-3 pt-2 border-t border-slate-800/80">
-              <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
-                <span>Pencapaian Target</span>
-                <span className="font-mono text-blue-400 font-bold">{targetProgress}%</span>
-              </div>
-              <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-300"
-                  style={{ width: `${targetProgress}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Stopwatch Total Waktu & Quick Controls */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between shadow-xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <Clock className="w-3.5 h-3.5 text-blue-400" />
-              <span>Waktu</span>
-            </div>
-            <button
-              type="button"
-              onClick={onToggleVoice}
-              title={isVoiceEnabled ? 'Matikan Suara Pelatih' : 'Nyalakan Suara Pelatih'}
-              className={`p-1.5 rounded-lg border transition-colors ${
-                isVoiceEnabled
-                  ? 'bg-blue-500/20 border-blue-500/40 text-blue-400 hover:bg-blue-500/30'
-                  : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              {isVoiceEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-          <div className="text-2xl font-bold font-mono text-slate-100">
-            {formatDuration(elapsedSeconds)}
-          </div>
-        </div>
-      </div>
-
-      {/* Indikator Simetri Bilateral Tubuh (Kiri vs Kanan) */}
-      {symmetry && (
-        <SymmetryIndicator symmetry={symmetry} />
-      )}
-
-      {/* Tempo & Time Under Tension (TUT) Gauge */}
-      {tempoState?.lastRepTempo && !isTimer && (
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex items-center justify-between text-xs shadow-md">
-          <div className="flex items-center gap-2">
-            <Gauge className="w-4 h-4 text-indigo-400 shrink-0" />
-            <div>
-              <span className="text-slate-400 text-[11px]">Tempo Repetisi Terakhir:</span>
-              <span className="font-mono font-bold text-slate-100 ml-1.5">
-                {tempoState.lastRepTempo.tempoFormat}
-              </span>
-              <span className="text-[10px] text-slate-400 ml-1">
-                ({tempoState.lastRepTempo.totalTUTSec}s TUT)
-              </span>
-            </div>
-          </div>
-
-          <span
-            className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase ${
-              tempoState.lastRepTempo.isRushed
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-            }`}
-          >
-            {tempoState.lastRepTempo.isRushed ? '⚠️ Terburu-buru' : '✓ Ritme Stabil'}
-          </span>
-        </div>
-      )}
-
-      {/* Real-time Form Fault Warning atau Coaching Feedback */}
-      {trackingResult?.activeFault ? (
-        <div className="bg-gradient-to-r from-red-950/90 via-rose-900/70 to-slate-900/90 border border-red-500/60 rounded-2xl p-4 flex items-center gap-3 text-sm text-red-200 shadow-xl shadow-red-950/40 animate-pulse">
-          <div className="w-8 h-8 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5 text-red-400" />
-          </div>
-          <div>
-            <span className="font-bold text-red-300 block text-xs uppercase tracking-wider">
-              Perbaiki Form: {trackingResult.activeFault.name}
-            </span>
-            <span className="font-medium text-xs sm:text-sm text-red-100">
-              {trackingResult.activeFault.description}
-            </span>
-          </div>
-        </div>
-      ) : feedback ? (
-        <div className="bg-gradient-to-r from-blue-900/40 via-indigo-900/40 to-slate-900/40 border border-blue-500/30 rounded-2xl p-3.5 flex items-center gap-3 text-sm text-blue-200 shadow-lg animate-fade-in">
-          <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <span className="font-medium text-xs sm:text-sm">{feedback}</span>
-        </div>
-      ) : null}
-
-      {/* Toolbar Fitur Mutakhir: Ghost Skeleton, Metronom, dan Form Reference */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 px-1">
-        <div className="flex items-center gap-2">
-          {/* Toggle Ghost Skeleton */}
-          {onToggleGhostSkeleton && (
-            <button
-              type="button"
-              onClick={onToggleGhostSkeleton}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                showGhostSkeleton
-                  ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
-                  : 'bg-slate-900/80 border-slate-700/60 text-slate-400 hover:text-slate-200'
-              }`}
-              title="Tampilkan bayangan skeleton ritme ideal langsung di kamera"
-            >
-              <Ghost className="w-3.5 h-3.5" />
-              <span>Bayangan Form {showGhostSkeleton ? 'ON' : 'OFF'}</span>
-            </button>
-          )}
-
-          {/* Toggle Metronom Audio */}
-          {onToggleMetronome && (
-            <button
-              type="button"
-              onClick={onToggleMetronome}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                isMetronomeEnabled
-                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                  : 'bg-slate-900/80 border-slate-700/60 text-slate-400 hover:text-slate-200'
-              }`}
-              title="Nyalakan bunyi detak pemandu ritme turun & naik"
-            >
-              <BellRing className="w-3.5 h-3.5" />
-              <span>Metronom {isMetronomeEnabled ? 'ON' : 'OFF'}</span>
-            </button>
-          )}
-
-          {/* Toggle Perintah Suara Dua Arah (Voice Commands) */}
-          {onToggleVoiceCommand && (
-            <button
-              type="button"
-              onClick={onToggleVoiceCommand}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                isVoiceCommandListening
-                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 shadow-md shadow-rose-500/20'
-                  : 'bg-slate-900/80 border-slate-700/60 text-slate-400 hover:text-slate-200'
-              }`}
-              title="Kontrol latihan tanpa sentuh dengan suara ('Jeda', 'Lanjut', 'Selesai')"
-            >
-              <Mic className={`w-3.5 h-3.5 ${isVoiceCommandListening ? 'text-rose-400 animate-pulse' : ''}`} />
-              <span>Voice Cmd {isVoiceCommandListening ? 'ON' : 'OFF'}</span>
-            </button>
-          )}
-        </div>
-
-        {/* Tombol Bantuan Form */}
-        {onOpenReference && (
-          <button
-            type="button"
-            onClick={onOpenReference}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 font-semibold text-blue-400 hover:text-blue-300 transition-all shadow-sm"
-          >
-            <UserCheck className="w-3.5 h-3.5 text-blue-400" />
-            <span>Lihat Contoh Form</span>
-          </button>
+          </>
+        ) : feedback ? (
+          <>
+            <Sparkles className="size-5 shrink-0" aria-hidden="true" />
+            <span>{feedback}</span>
+          </>
+        ) : (
+          <span className="text-text-2">{isRunning ? 'Bagus. Terus bergerak.' : 'Latihan dijeda.'}</span>
         )}
       </div>
 
-      {/* Control Buttons (Pause/Resume, Reset, Finish) */}
-      <div className="grid grid-cols-3 gap-3 pt-1">
-        <button
-          onClick={onTogglePause}
-          className={`py-3.5 px-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 border transition-all ${
-            isRunning
-              ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-              : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-600/20'
-          }`}
-        >
-          {isRunning ? (
-            <>
-              <Pause className="w-4 h-4" />
-              <span>Jeda</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4" />
-              <span>Lanjut</span>
-            </>
+      {/* Baris meta */}
+      <div className="num flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-footnote text-text-2">
+        <span className="inline-flex items-center gap-1.5">
+          <Clock className="size-3.5" aria-hidden="true" />
+          {formatDuration(elapsedSeconds)}
+        </span>
+        {tempoState?.lastRepTempo && !isTimer && (
+          <span className="inline-flex items-center gap-1.5">
+            <Gauge className="size-3.5" aria-hidden="true" />
+            Tempo {tempoState.lastRepTempo.tempoFormat}
+            {tempoState.lastRepTempo.isRushed && <span className="text-warning">· terburu-buru</span>}
+          </span>
+        )}
+        {lastVoiceCommand && (
+          <span className="inline-flex items-center gap-1.5 text-accent-text">
+            <Mic className="size-3.5" aria-hidden="true" />
+            &ldquo;{lastVoiceCommand}&rdquo;
+          </span>
+        )}
+      </div>
+
+      {symmetry && <SymmetryIndicator symmetry={symmetry} />}
+
+      {/* Kontrol: 3 tombol 56px, posisi tetap */}
+      <div className="grid grid-cols-3 gap-3">
+        {isRunning ? (
+          <Button variant="secondary" size="xl" onClick={onTogglePause} icon={<Pause className="size-5" aria-hidden="true" />} className="w-full px-2">
+            Jeda
+          </Button>
+        ) : (
+          <Button size="xl" onClick={onTogglePause} icon={<Play className="size-5" aria-hidden="true" />} className="w-full bg-success px-2 text-on-success">
+            Lanjut
+          </Button>
+        )}
+        <Button variant="secondary" size="xl" onClick={requestReset} icon={<RotateCcw className="size-5" aria-hidden="true" />} className="w-full px-2">
+          Ulang
+        </Button>
+        <Button size="xl" onClick={requestFinish} icon={<Check className="size-5" aria-hidden="true" />} className="w-full px-2">
+          Selesai
+        </Button>
+      </div>
+
+      {/* Opsi sekunder: semua toggle di satu sheet */}
+      <Dialog open={sheetOpen} onClose={() => setSheetOpen(false)} title="Opsi latihan">
+        <div className="flex flex-wrap gap-2">
+          {onToggleGhostSkeleton && (
+            <Toggle pressed={showGhostSkeleton} onPressedChange={() => onToggleGhostSkeleton()} label="Bayangan form" icon={<Ghost className="size-4" aria-hidden="true" />} />
           )}
-        </button>
+          {onToggleMetronome && (
+            <Toggle pressed={isMetronomeEnabled} onPressedChange={() => onToggleMetronome()} label="Metronom" icon={<BellRing className="size-4" aria-hidden="true" />} />
+          )}
+          {onToggleVoiceCommand && (
+            <Toggle pressed={isVoiceCommandListening} onPressedChange={() => onToggleVoiceCommand()} label="Perintah suara" icon={<Mic className="size-4" aria-hidden="true" />} />
+          )}
+          <Toggle
+            pressed={isVoiceEnabled}
+            onPressedChange={() => onToggleVoice()}
+            label="Suara pelatih"
+            icon={isVoiceEnabled ? <Volume2 className="size-4" aria-hidden="true" /> : <VolumeX className="size-4" aria-hidden="true" />}
+          />
+        </div>
 
-        <button
-          onClick={onReset}
-          className="py-3.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all"
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Reset</span>
-        </button>
+        {onOpenReference && (
+          <Button
+            variant="secondary"
+            className="mt-4 w-full"
+            icon={<UserCheck className="size-4" aria-hidden="true" />}
+            onClick={() => {
+              setSheetOpen(false);
+              onOpenReference();
+            }}
+          >
+            Lihat contoh form
+          </Button>
+        )}
 
-        <button
-          onClick={onFinish}
-          className="py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 border border-blue-500/30 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all"
-        >
-          <Check className="w-4 h-4" />
-          <span>Selesai</span>
-        </button>
-      </div>
+        <p className="mt-4 flex items-start gap-2 text-footnote text-text-3">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          Tanpa sentuh: angkat tangan 1,5 detik untuk jeda atau lanjut. Silangkan tangan untuk selesai.
+        </p>
+      </Dialog>
 
-      {/* Petunjuk Gestur Tangan Tanpa Sentuh */}
-      <div className="text-center text-[10px] text-slate-500 flex items-center justify-center gap-3 pt-0.5">
-        <span>✋ Angkat tangan 1.5 detik: Jeda/Lanjut</span>
-        <span>&bull;</span>
-        <span>❌ Silang tangan: Selesai</span>
-      </div>
+      {/* Konfirmasi untuk tindakan yang merusak data sesi */}
+      <Dialog
+        open={confirm !== null}
+        onClose={() => setConfirm(null)}
+        title={confirm === 'reset' ? 'Ulang sesi ini?' : 'Selesaikan sesi?'}
+        description={
+          confirm === 'reset'
+            ? `${reps} rep di sesi ini akan dihapus.`
+            : `Sesi dengan ${reps} rep akan disimpan ke riwayat.`
+        }
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={() => setConfirm(null)}>
+            Kembali
+          </Button>
+          <Button variant={confirm === 'reset' ? 'destructive' : 'primary'} onClick={runConfirmed}>
+            {confirm === 'reset' ? 'Ulang' : 'Selesai'}
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

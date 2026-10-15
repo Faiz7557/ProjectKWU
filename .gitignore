@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# mediapipe wasm (disalin dari node_modules oleh scripts/sync-mediapipe-wasm.mjs)
+/public/wasm

@@ -8,7 +8,8 @@ export interface WorkoutReportData {
   holdDurationSec?: number | null;
   sessionDurationSec: number;
   caloriesBurned: number;
-  formScore: number;
+  /** Undefined = belum ada data; laporan menulis "belum diukur", bukan angka karangan. */
+  formScore?: number;
   symmetryScore?: number;
   faultsSummary?: { name: string; count: number; description: string }[];
   tempoRatio?: string;
@@ -142,22 +143,37 @@ export function generateWorkoutPDFReport(data: WorkoutReportData): void {
   const scoreCardWidth = (pageWidth - 30 - 6) / 3;
   const scoreCardHeight = 28;
 
-  const symmetry = data.symmetryScore ?? 95;
+  const symmetry = data.symmetryScore;
   const formScore = data.formScore;
   const tempo = data.tempoRatio || '3-1-1 (Ideal)';
+  const notMeasured = [148, 163, 184];
 
   const scoreSections = [
     {
       title: 'Skor Form & Postur',
-      score: `${formScore}/100`,
-      desc: formScore >= 85 ? 'Sangat Baik (Konsisten)' : formScore >= 70 ? 'Cukup (Perlu Koreksi)' : 'Perlu Bimbingan',
-      color: formScore >= 85 ? [16, 185, 129] : [234, 179, 8],
+      score: formScore !== undefined ? `${formScore}/100` : 'Belum diukur',
+      desc:
+        formScore === undefined
+          ? 'Tidak ada data form untuk sesi ini'
+          : formScore >= 85
+            ? 'Sangat Baik (Konsisten)'
+            : formScore >= 70
+              ? 'Cukup (Perlu Koreksi)'
+              : 'Perlu Bimbingan',
+      color: formScore === undefined ? notMeasured : formScore >= 85 ? [16, 185, 129] : [234, 179, 8],
     },
     {
       title: 'Keseimbangan Bilateral',
-      score: `${symmetry}%`,
-      desc: symmetry >= 90 ? 'Simetri Sangat Tinggi' : symmetry >= 80 ? 'Sedikit Deviasi' : 'Asimetri Perlu Evaluasi',
-      color: symmetry >= 88 ? [16, 185, 129] : [239, 68, 68],
+      score: symmetry !== undefined ? `${symmetry}%` : 'Belum diukur',
+      desc:
+        symmetry === undefined
+          ? 'Tidak diukur pada gerakan ini'
+          : symmetry >= 90
+            ? 'Simetri Sangat Tinggi'
+            : symmetry >= 80
+              ? 'Sedikit Deviasi'
+              : 'Asimetri Perlu Evaluasi',
+      color: symmetry === undefined ? notMeasured : symmetry >= 88 ? [16, 185, 129] : [239, 68, 68],
     },
     {
       title: 'Kontrol Ritme / Tempo',
@@ -242,13 +258,13 @@ export function generateWorkoutPDFReport(data: WorkoutReportData): void {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(67, 56, 202); // indigo-700
-  doc.text('🎯 Rekomendasi Pelatih Pintar (AI Coach Action Plan):', 20, y + 7);
+  doc.text('Rekomendasi Pelatih (Rencana Tindakan):', 20, y + 7);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(30, 41, 59);
-  const defaultAdvice = formScore >= 85
-    ? 'Postur tubuh Anda sangat stabil dan terkendali. Pada sesi berikutnya, coba tingkatkan target repetisi sebanyak 10-15% atau tambahkan waktu jeda di titik bawah (isometric bottom pause) untuk merangsang hipertrofi optimal.'
+  const defaultAdvice = formScore !== undefined && formScore >= 85
+    ? 'Postur tubuh kamu sangat stabil dan terkendali. Pada sesi berikutnya, coba tingkatkan target repetisi sebanyak 10-15% atau tambahkan waktu jeda di titik bawah (isometric bottom pause) untuk merangsang hipertrofi optimal.'
     : 'Fokuskan latihan berikutnya pada pengendalian kecepatan turun (fase eksentrik). Pertahankan garis lurus tulang punggung dan pastikan beban terdistribusi seimbang pada kedua sisi tubuh sebelum menambah jumlah repetisi.';
 
   const coachText = data.coachAdvice || defaultAdvice;

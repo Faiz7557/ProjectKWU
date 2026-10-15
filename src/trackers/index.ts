@@ -4,10 +4,12 @@ import { SquatTracker } from './squat-tracker';
 import { SitupTracker } from './situp-tracker';
 import { JumpingJackTracker } from './jumping-jack-tracker';
 import { PlankTracker } from './plank-tracker';
+import { loadBottomThreshold } from './calibration';
 
+// Tracker counter memakai ambang hasil kalibrasi personal bila sudah ada (lihat calibration.ts).
 const TRACKER_REGISTRY: Record<string, () => ExerciseTracker> = {
-  pushup: () => new PushupTracker(),
-  squat: () => new SquatTracker(),
+  pushup: () => new PushupTracker({ bottom: loadBottomThreshold('pushup') }),
+  squat: () => new SquatTracker({ bottom: loadBottomThreshold('squat') }),
   situp: () => new SitupTracker(),
   jumping_jack: () => new JumpingJackTracker(),
   plank: () => new PlankTracker(),

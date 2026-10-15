@@ -1,25 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import {
-  History,
-  Flame,
-  Clock,
-  Trophy,
-  Award,
-  ArrowLeft,
-  Calendar,
-  Filter,
-  Plus,
-  Trash2,
-  Lock,
-  Sparkles,
-  CheckCircle2,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Flame, Clock, Trophy, Award, Calendar, Lock, Sparkles, CheckCircle2, TriangleAlert, Trash2, Plus, Target } from 'lucide-react';
 import { getGamificationState } from '@/lib/gamification/streak';
 import { ALL_ACHIEVEMENTS, getLevelInfo } from '@/lib/gamification/achievements';
 import type { UserGamificationState } from '@/lib/gamification/types';
+import { TopBar } from '@/components/ui/Nav';
+import { Button } from '@/components/ui/Button';
+import { Card, Badge, Stat, ProgressBar } from '@/components/ui/Surfaces';
+import { Toggle } from '@/components/ui/Controls';
+import { Dialog } from '@/components/ui/Dialog';
+import { ExerciseIcon } from '@/components/ui/ExerciseIcon';
 
 interface SavedSession {
   id: string;
@@ -43,11 +34,41 @@ const EXERCISE_NAMES: Record<string, string> = {
   plank: 'Plank',
 };
 
+const FILTERS = [
+  { id: 'all', label: 'Semua' },
+  { id: 'pushup', label: 'Push-up' },
+  { id: 'squat', label: 'Squat' },
+  { id: 'situp', label: 'Sit-up' },
+  { id: 'jumping_jack', label: 'Jumping Jack' },
+  { id: 'plank', label: 'Plank' },
+];
+
+const formatMinSec = (sec: number) => {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m > 0 ? `${m} mnt ${s} dtk` : `${s} dtk`;
+};
+
+const formatDate = (isoString: string) => {
+  try {
+    return new Date(isoString).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return isoString;
+  }
+};
+
 export default function HistoryPage() {
   const [sessions, setSessions] = useState<SavedSession[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [gamification, setGamification] = useState<UserGamificationState | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   // Muat data dari localStorage dan API backend
   useEffect(() => {
@@ -57,42 +78,31 @@ export default function HistoryPage() {
 
       try {
         const stored = localStorage.getItem('smartfit_workout_history');
-        if (stored) {
-          localSessions = JSON.parse(stored);
-        }
+        if (stored) localSessions = JSON.parse(stored);
       } catch {
-        // Ignore
+        // Abaikan data rusak; tampilkan kosong
       }
 
-      // Muat data gamifikasi
-      const gState = getGamificationState();
-      setGamification(gState);
+      setGamification(getGamificationState());
 
-      // Coba fetch dari API jika ada
+      // Gabungkan dengan API bila tersedia; jika gagal, tetap pakai data lokal
       try {
         const res = await fetch('/api/sessions');
         if (res.ok) {
           const json = await res.json();
           if (json.sessions && Array.isArray(json.sessions) && json.sessions.length > 0) {
-            const apiMap = new Map<string, SavedSession>(
-              json.sessions.map((s: SavedSession) => [s.id, s])
-            );
+            const apiMap = new Map<string, SavedSession>(json.sessions.map((s: SavedSession) => [s.id, s]));
             for (const s of localSessions) {
-              if (!apiMap.has(s.id)) {
-                apiMap.set(s.id, s);
-              }
+              if (!apiMap.has(s.id)) apiMap.set(s.id, s);
             }
             localSessions = Array.from(apiMap.values());
           }
         }
       } catch {
-        // Fallback to local
+        // Fallback ke data lokal
       }
 
-      localSessions.sort(
-        (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-      );
-
+      localSessions.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
       setSessions(localSessions);
       setIsLoading(false);
     }
@@ -100,53 +110,27 @@ export default function HistoryPage() {
     loadHistory();
   }, []);
 
-  const handleClearHistory = () => {
-    if (confirm('Apakah Anda yakin ingin menghapus semua riwayat latihan di perangkat ini?')) {
+  const clearHistory = () => {
+    try {
       localStorage.removeItem('smartfit_workout_history');
-      setSessions([]);
+    } catch {
+      // Abaikan: state tetap dikosongkan di layar
     }
+    setSessions([]);
+    setConfirmClear(false);
   };
 
-  // Kalkulasi agregat metrik
+  // Agregat. Form rata-rata hanya dari sesi yang punya formScore; tanpa data = null (tampil "—").
   const totalReps = sessions.reduce((acc, s) => acc + (s.reps ?? 0), 0);
   const totalSeconds = sessions.reduce((acc, s) => acc + s.sessionDurationSec, 0);
   const totalCalories = sessions.reduce(
     (acc, s) => acc + (s.caloriesBurned ?? Math.round(s.sessionDurationSec * 0.14)),
-    0
+    0,
   );
-  const avgFormScore =
-    sessions.length > 0
-      ? Math.round(
-          sessions.reduce((acc, s) => acc + (s.formScore ?? 92), 0) / sessions.length
-        )
-      : 0;
+  const scored = sessions.filter((s) => typeof s.formScore === 'number');
+  const avgFormScore = scored.length > 0 ? Math.round(scored.reduce((acc, s) => acc + (s.formScore ?? 0), 0) / scored.length) : null;
 
-  const filteredSessions =
-    selectedFilter === 'all'
-      ? sessions
-      : sessions.filter((s) => s.exercise === selectedFilter);
-
-  const formatMinSec = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
-  };
-
-  const formatDate = (isoString: string) => {
-    try {
-      const d = new Date(isoString);
-      return d.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return isoString;
-    }
-  };
+  const filteredSessions = selectedFilter === 'all' ? sessions : sessions.filter((s) => s.exercise === selectedFilter);
 
   const levelInfo = gamification ? getLevelInfo(gamification.totalXp) : null;
   const xpProgress = levelInfo
@@ -155,347 +139,226 @@ export default function HistoryPage() {
         Math.round(
           ((gamification!.totalXp - levelInfo.currentTierBaseXp) /
             Math.max(1, levelInfo.nextLevelXp - levelInfo.currentTierBaseXp)) *
-            100
-        )
+            100,
+        ),
       )
     : 0;
 
+  const streakMessage = !gamification
+    ? ''
+    : gamification.streak.current >= 7
+      ? 'Konsistensi kamu sudah di level tertinggi. Pertahankan.'
+      : gamification.streak.current >= 3
+        ? 'Bagus. Lanjutkan sampai dapat lencana 7 hari berturut-turut.'
+        : 'Bangun kebiasaan harian dengan satu sesi setiap hari.';
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Top Bar Navigation */}
-        <div className="flex items-center justify-between">
-          <Link
-            href="/workout"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Kembali ke Latihan</span>
-          </Link>
+    <div className="min-h-dvh bg-canvas pb-16">
+      <TopBar title="Riwayat" back={{ href: '/workout', label: 'Latihan' }} />
 
-          {sessions.length > 0 && (
-            <button
-              onClick={handleClearHistory}
-              className="inline-flex items-center gap-1.5 text-xs text-red-400/80 hover:text-red-400 transition-colors p-2"
-              title="Hapus riwayat lokal"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Hapus Riwayat</span>
-            </button>
-          )}
-        </div>
-
-        {/* Title */}
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider">
-            <History className="w-3.5 h-3.5" />
-            <span>Dashboard Progres & Gamifikasi</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            Pusat Kebugaran & Prestasi
-          </h1>
-        </div>
-
-        {/* GAMIFIKASI: STREAK & LEVEL XP BANNER */}
+      <div className="mx-auto max-w-4xl space-y-6 px-4 pt-6 sm:px-6">
+        {/* Streak & level */}
         {gamification && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Daily Streak Card */}
-            <div className="bg-gradient-to-br from-slate-900 to-amber-950/30 border border-amber-500/30 rounded-3xl p-6 shadow-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
-                  <Flame className="w-4 h-4" />
-                  <span>Streak Latihan Harian</span>
-                </div>
-                <span className="text-[11px] text-slate-400">
-                  Rekor Terpanjang: {gamification.streak.longest} hari
-                </span>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Card className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex items-center gap-2 text-subhead font-semibold text-data-streak">
+                  <Flame className="size-4" aria-hidden="true" /> Streak harian
+                </p>
+                <span className="text-caption text-text-2">Terpanjang {gamification.streak.longest} hari</span>
               </div>
-
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-amber-400 font-mono">
-                  {gamification.streak.current}
-                </span>
-                <span className="text-base font-semibold text-amber-200">
-                  Hari Berturut-turut
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-400">
-                {gamification.streak.current >= 7
-                  ? '🔥 Luar biasa! Konsistensi Anda berada di level atletis tertinggi.'
-                  : gamification.streak.current >= 3
-                  ? '⚡ Hebat! Pertahankan api streak Anda untuk meraih badge 7-Day Warrior.'
-                  : 'Mulai bangun kebiasaan sehat harian Anda dengan menyelesaikan 1 sesi per hari.'}
+              <p className="flex items-baseline gap-2">
+                <span className="num text-metric-l text-data-streak">{gamification.streak.current}</span>
+                <span className="text-headline text-text">hari berturut-turut</span>
               </p>
-            </div>
+              <p className="text-footnote text-text-2">{streakMessage}</p>
+            </Card>
 
-            {/* Level & XP Card */}
-            <div className="bg-gradient-to-br from-slate-900 to-indigo-950/30 border border-indigo-500/30 rounded-3xl p-6 shadow-xl space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
-                  <Sparkles className="w-4 h-4" />
-                  <span>Level & Poin Pengalaman (XP)</span>
-                </div>
-                <span className="text-xs font-mono font-bold text-indigo-300">
-                  {gamification.totalXp} XP
-                </span>
+            <Card className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex items-center gap-2 text-subhead font-semibold text-data-xp">
+                  <Sparkles className="size-4" aria-hidden="true" /> Level dan XP
+                </p>
+                <span className="num text-caption text-text-2">{gamification.totalXp} XP</span>
               </div>
-
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-indigo-400 font-mono">
-                  Lv. {gamification.level}
-                </span>
-                <span className="text-base font-semibold text-slate-200">
-                  {gamification.levelName}
-                </span>
-              </div>
-
+              <p className="flex items-baseline gap-2">
+                <span className="num text-metric-l text-data-xp">Lv. {gamification.level}</span>
+                <span className="text-headline text-text">{gamification.levelName}</span>
+              </p>
               {levelInfo && (
-                <div className="space-y-1 pt-1">
-                  <div className="flex justify-between text-[11px] text-slate-400">
-                    <span>Progres ke Level {gamification.level + 1}</span>
-                    <span className="font-mono text-indigo-300 font-bold">{xpProgress}%</span>
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex justify-between text-footnote text-text-2">
+                    <span>Menuju level {gamification.level + 1}</span>
+                    <span className="num font-semibold text-text">{xpProgress}%</span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-400 transition-all duration-500"
-                      style={{ width: `${xpProgress}%` }}
-                    />
-                  </div>
+                  <ProgressBar value={xpProgress / 100} tone="xp" label={`Progres ke level ${gamification.level + 1}`} />
                 </div>
               )}
-            </div>
+            </Card>
           </div>
         )}
 
-        {/* PENCAPAIAN / ACHIEVEMENT BADGES GRID */}
+        {/* Pencapaian */}
         {gamification && (
-          <div className="bg-slate-900/70 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-bold text-slate-100">
-                  Pencapaian Saya ({gamification.unlockedAchievementIds.length}/{ALL_ACHIEVEMENTS.length} Terbuka)
-                </h3>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <Card className="space-y-4">
+            <h2 className="flex items-center gap-2 text-headline text-text">
+              <Trophy className="size-5 text-data-streak" aria-hidden="true" />
+              Pencapaian ({gamification.unlockedAchievementIds.length}/{ALL_ACHIEVEMENTS.length})
+            </h2>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {ALL_ACHIEVEMENTS.map((ach) => {
-                const isUnlocked = gamification.unlockedAchievementIds.includes(ach.id);
-
+                const unlocked = gamification.unlockedAchievementIds.includes(ach.id);
                 return (
-                  <div
+                  <li
                     key={ach.id}
-                    className={`p-3.5 rounded-2xl border text-center transition-all flex flex-col justify-between ${
-                      isUnlocked
-                        ? 'bg-slate-800/80 border-amber-500/40 shadow-md'
-                        : 'bg-slate-900/40 border-slate-800/80 opacity-50'
-                    }`}
+                    className={`flex flex-col justify-between gap-3 rounded-md p-3.5 ${unlocked ? 'bg-surface-3' : 'bg-surface-3/60'}`}
                   >
-                    <div>
-                      <div className="text-3xl mb-1.5">{isUnlocked ? ach.icon : '🔒'}</div>
-                      <h4 className="text-xs font-bold text-slate-200 line-clamp-1">{ach.name}</h4>
-                      <p className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-tight">
-                        {ach.description}
-                      </p>
+                    <div className="space-y-1">
+                      <span className={`grid size-9 place-items-center rounded-full ${unlocked ? 'bg-warning-soft text-data-streak' : 'bg-surface text-text-3'}`} aria-hidden="true">
+                        {unlocked ? <Award className="size-5" /> : <Lock className="size-4" />}
+                      </span>
+                      <h3 className={`line-clamp-1 text-subhead font-semibold ${unlocked ? 'text-text' : 'text-text-2'}`}>{ach.name}</h3>
+                      <p className="line-clamp-2 text-caption leading-snug text-text-2">{ach.description}</p>
                     </div>
-
-                    <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-center gap-1">
-                      {isUnlocked ? (
-                        <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>+{ach.xpReward} XP</span>
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
-                          <Lock className="w-2.5 h-2.5" />
-                          <span>Terkunci</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                    {unlocked ? (
+                      <span className="flex items-center gap-1 text-caption font-semibold text-success">
+                        <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                        <span>+{ach.xpReward} XP</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-caption font-medium text-text-3">
+                        <Lock className="size-3" aria-hidden="true" />
+                        <span>Belum terbuka</span>
+                      </span>
+                    )}
+                  </li>
                 );
               })}
-            </div>
-          </div>
+            </ul>
+          </Card>
         )}
 
-        {/* Highlight Stats Banner */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <Trophy className="w-4 h-4 text-blue-400" />
-              <span>Total Reps</span>
-            </div>
-            <div className="text-3xl font-black text-blue-400 font-mono">
-              {totalReps}
-            </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <Clock className="w-4 h-4 text-indigo-400" />
-              <span>Total Durasi</span>
-            </div>
-            <div className="text-3xl font-black text-slate-100 font-mono">
-              {Math.round(totalSeconds / 60)}m
-            </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <Flame className="w-4 h-4 text-orange-400" />
-              <span>Kalori</span>
-            </div>
-            <div className="text-3xl font-black text-orange-400 font-mono">
-              {totalCalories}
-            </div>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <Award className="w-4 h-4 text-emerald-400" />
-              <span>Rata-rata Form</span>
-            </div>
-            <div className="text-3xl font-black text-emerald-400 font-mono">
-              {avgFormScore > 0 ? `${avgFormScore}%` : '-'}
-            </div>
-          </div>
+        {/* Ringkasan */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card><Stat label="Total rep" value={totalReps} tone="reps" icon={Target} /></Card>
+          <Card><Stat label="Total durasi" value={Math.round(totalSeconds / 60)} unit="mnt" icon={Clock} /></Card>
+          <Card><Stat label="Kalori" value={totalCalories} unit="kkal" tone="kcal" icon={Flame} /></Card>
+          <Card>
+            <Stat label="Rata-rata form" value={avgFormScore} unit={avgFormScore !== null ? '%' : undefined} tone="form" />
+            {avgFormScore !== null && <p className="mt-1 text-caption text-text-3">Dari {scored.length} sesi</p>}
+          </Card>
         </div>
 
-        {/* Filter Gerakan */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 text-xs font-semibold">
-          <span className="text-slate-500 mr-1 flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5" />
-            Filter:
-          </span>
-          {[
-            { id: 'all', label: 'Semua' },
-            { id: 'pushup', label: 'Push-up' },
-            { id: 'squat', label: 'Squat' },
-            { id: 'situp', label: 'Sit-up' },
-            { id: 'jumping_jack', label: 'Jumping Jack' },
-            { id: 'plank', label: 'Plank' },
-          ].map((btn) => (
-            <button
-              key={btn.id}
-              onClick={() => setSelectedFilter(btn.id)}
-              className={`px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
-                selectedFilter === btn.id
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                  : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              {btn.label}
-            </button>
+        {/* Filter */}
+        <div role="group" aria-label="Filter gerakan" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+          {FILTERS.map((f) => (
+            <Toggle
+              key={f.id}
+              pressed={selectedFilter === f.id}
+              onPressedChange={() => setSelectedFilter(f.id)}
+              label={f.label}
+              className="shrink-0 rounded-full"
+            />
           ))}
         </div>
 
-        {/* List Riwayat Sesi */}
+        {/* Daftar sesi */}
         {isLoading ? (
-          <div className="py-12 text-center text-slate-500 text-sm">
+          <p className="py-12 text-center text-callout text-text-3" role="status">
             Memuat riwayat latihan...
-          </div>
+          </p>
         ) : filteredSessions.length === 0 ? (
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-10 text-center space-y-4">
-            <div className="w-16 h-16 rounded-3xl bg-slate-800 flex items-center justify-center mx-auto text-slate-500">
-              <Calendar className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-300">Belum Ada Sesi Tercatat</h3>
-            <p className="text-sm text-slate-500 max-w-sm mx-auto">
-              Selesaikan sesi latihan pertama Anda untuk membuka badge dan memantau perkembangan Anda.
+          <Card className="space-y-4 p-8 text-center">
+            <span className="mx-auto grid size-14 place-items-center rounded-full bg-surface-3 text-text-3">
+              <Calendar className="size-7" aria-hidden="true" />
+            </span>
+            <h2 className="text-title-3 text-text">Belum ada sesi tercatat</h2>
+            <p className="mx-auto max-w-sm text-callout text-text-2">
+              Selesaikan satu sesi latihan untuk mulai melihat progres dan membuka lencana.
             </p>
-            <Link
-              href="/workout"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-600/25 mt-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Mulai Latihan Sekarang</span>
-            </Link>
-          </div>
+            <Button href="/workout" icon={<Plus className="size-4" aria-hidden="true" />}>
+              Mulai latihan
+            </Button>
+          </Card>
         ) : (
-          <div className="space-y-3">
+          <ul className="space-y-3">
             {filteredSessions.map((session, idx) => {
-              const name =
-                session.exerciseName ||
-                EXERCISE_NAMES[session.exercise] ||
-                session.exercise;
+              const name = session.exerciseName || EXERCISE_NAMES[session.exercise] || session.exercise;
               const isPlank = session.exercise === 'plank';
-
+              const kcal = session.caloriesBurned ?? Math.round(session.sessionDurationSec * 0.14);
+              const faults = session.faultsSummary ?? [];
               return (
-                <div
-                  key={session.id || idx}
-                  className="bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all shadow-sm"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-base text-slate-100">
-                        {name}
-                      </span>
-                      {session.formScore && (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20">
-                          {session.formScore}% Form
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-slate-400 flex items-center gap-2">
-                      <Calendar className="w-3 h-3 text-slate-500" />
-                      <span>{formatDate(session.startedAt)}</span>
-                    </div>
-
-                    {session.faultsSummary && session.faultsSummary.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1.5">
-                        {session.faultsSummary.map((f, i) => (
-                          <span
-                            key={i}
-                            className="px-2 py-0.5 rounded-full bg-red-950/40 border border-red-500/30 text-red-300 text-[10px] font-semibold"
-                          >
-                            ⚠️ {f.name} ({f.count}x)
-                          </span>
-                        ))}
+                <li key={session.id || idx}>
+                  <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <ExerciseIcon exercise={session.exercise} />
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-headline text-text">{name}</span>
+                          {typeof session.formScore === 'number' && <Badge tone="form">{session.formScore}% form</Badge>}
+                        </div>
+                        <p className="flex items-center gap-1.5 text-footnote text-text-2">
+                          <Calendar className="size-3.5 text-text-3" aria-hidden="true" />
+                          {formatDate(session.startedAt)}
+                        </p>
+                        {faults.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {faults.slice(0, 2).map((f, i) => (
+                              <Badge key={i} tone="danger" icon={<TriangleAlert className="size-3" />}>
+                                {f.name} ({f.count}x)
+                              </Badge>
+                            ))}
+                            {faults.length > 2 && <Badge tone="neutral">+{faults.length - 2}</Badge>}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-6 self-end sm:self-auto">
-                    <div className="text-right">
-                      <span className="text-xs font-medium text-slate-500 block">
-                        {isPlank ? 'Waktu Hold' : 'Repetisi'}
-                      </span>
-                      <span className="text-xl font-bold font-mono text-blue-400">
-                        {isPlank
-                          ? formatMinSec(session.holdDurationSec ?? 0)
-                          : `${session.reps ?? 0} reps`}
-                      </span>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-xs font-medium text-slate-500 block">
-                        Durasi
-                      </span>
-                      <span className="text-sm font-semibold font-mono text-slate-300">
-                        {formatMinSec(session.sessionDurationSec)}
-                      </span>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-xs font-medium text-slate-500 block">
-                        Kalori
-                      </span>
-                      <span className="text-sm font-semibold font-mono text-orange-400">
-                        {session.caloriesBurned ??
-                          Math.round(session.sessionDurationSec * 0.14)}{' '}
-                        kcal
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                    <dl className="grid grid-cols-3 gap-4 sm:flex sm:gap-6">
+                      <div className="text-right">
+                        <dt className="text-caption text-text-3">{isPlank ? 'Waktu hold' : 'Repetisi'}</dt>
+                        <dd className="num text-title-3 text-text">{isPlank ? formatMinSec(session.holdDurationSec ?? 0) : `${session.reps ?? 0}`}</dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-caption text-text-3">Durasi</dt>
+                        <dd className="num text-subhead text-text-2">{formatMinSec(session.sessionDurationSec)}</dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-caption text-text-3">Kalori</dt>
+                        <dd className="num text-subhead text-data-kcal">~{kcal} kkal</dd>
+                      </div>
+                    </dl>
+                  </Card>
+                </li>
               );
             })}
+          </ul>
+        )}
+
+        {sessions.length > 0 && (
+          <div className="flex justify-center pt-2">
+            <Button variant="tertiary" className="text-danger" icon={<Trash2 className="size-4" aria-hidden="true" />} onClick={() => setConfirmClear(true)}>
+              Hapus semua riwayat
+            </Button>
           </div>
         )}
       </div>
+
+      <Dialog
+        open={confirmClear}
+        onClose={() => setConfirmClear(false)}
+        title="Hapus semua riwayat?"
+        description={`${sessions.length} sesi di perangkat ini akan dihapus. Tindakan ini tidak bisa dibatalkan.`}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={() => setConfirmClear(false)}>
+            Batal
+          </Button>
+          <Button variant="destructive" onClick={clearHistory}>
+            Hapus semua
+          </Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

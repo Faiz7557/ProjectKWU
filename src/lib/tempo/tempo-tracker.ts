@@ -1,3 +1,5 @@
+import type { RepEvent } from '../../trackers/types';
+
 export interface RepTempoResult {
   eccentricSec: number;
   bottomPauseSec: number;
@@ -5,6 +7,29 @@ export interface RepTempoResult {
   totalTUTSec: number;
   tempoFormat: string; // Misal: "3-1-1"
   isRushed: boolean;
+}
+
+/** Batas bawah fase turun (detik) di bawah ini rep dianggap terburu-buru. */
+export const RUSHED_ECCENTRIC_SEC = 1.1;
+
+/**
+ * Tempo satu rep dari RepEvent (sinyal sudut kontinu). Menggantikan TempoTracker berbasis state biner
+ * yang selalu menghasilkan fase turun ~0 detik (A8).
+ */
+export function tempoFromRepEvent(event: RepEvent): RepTempoResult | null {
+  if (event.kind !== 'rep') return null;
+  const ecc = event.eccMs / 1000;
+  const bot = event.pauseMs / 1000;
+  const con = event.conMs / 1000;
+  const total = event.totalMs / 1000;
+  return {
+    eccentricSec: Number(ecc.toFixed(2)),
+    bottomPauseSec: Number(bot.toFixed(2)),
+    concentricSec: Number(con.toFixed(2)),
+    totalTUTSec: Number(total.toFixed(2)),
+    tempoFormat: `${Math.max(1, Math.round(ecc))}-${Math.round(bot)}-${Math.max(1, Math.round(con))}`,
+    isRushed: ecc < RUSHED_ECCENTRIC_SEC,
+  };
 }
 
 export interface TempoState {

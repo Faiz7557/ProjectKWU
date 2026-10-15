@@ -16,12 +16,20 @@ export interface UserStreak {
   lastWorkoutDate: string | null; // Format YYYY-MM-DD
 }
 
+/** Counter kumulatif seumur hidup, tidak dibatasi jumlah item history. */
+export interface CumulativeStats {
+  totalSessions: number;
+  totalReps: number;
+  exercises: string[];
+}
+
 export interface UserGamificationState {
   streak: UserStreak;
   totalXp: number;
   level: number;
   levelName: string;
   unlockedAchievementIds: string[];
+  stats: CumulativeStats;
 }
 
 export interface WorkoutSessionSummaryStats {

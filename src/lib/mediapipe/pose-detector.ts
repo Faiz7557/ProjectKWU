@@ -17,10 +17,9 @@ export async function getPoseDetector(): Promise<PoseLandmarker> {
 
   if (!detectorPromise) {
     detectorPromise = (async () => {
-      // Inisialisasi WASM runtime dari CDN resmi MediaPipe
-      const vision = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-      );
+      // WASM runtime self-hosted dari paket yang di-pin (lihat scripts/sync-mediapipe-wasm.mjs).
+      // Tidak lagi @latest dari CDN: versi tidak bisa bergeser diam-diam, dan PWA tetap jalan offline.
+      const vision = await FilesetResolver.forVisionTasks('/wasm');
 
       // Buat instance landmarker dengan model lite lokal
       detectorInstance = await PoseLandmarker.createFromOptions(vision, {

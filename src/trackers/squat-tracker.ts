@@ -4,8 +4,16 @@ import type {
   ExerciseConfig,
   TrackingResult,
   FormFault,
+  FrameSize,
 } from './types';
-import { calculateAngle } from './base-tracker';
+import {
+  calculateAngle,
+  toPixelSpace,
+  angleBetweenVectors,
+  DEFAULT_FRAME,
+  SideSelector,
+} from './base-tracker';
+import { RepStateMachine, RepAccumulator } from './rep-state-machine';
 
 const L_SHOULDER = 11;
 const R_SHOULDER = 12;
@@ -15,9 +23,20 @@ const L_KNEE = 25;
 const R_KNEE = 26;
 const L_ANKLE = 27;
 const R_ANKLE = 28;
+const L_HEEL = 29;
+const R_HEEL = 30;
+const L_FOOT_INDEX = 31;
+const R_FOOT_INDEX = 32;
 
-const ANGLE_SQUAT = 100;     // Sudut lutut saat squat jongkok dalam (< 100°)
-const ANGLE_STANDING = 160;  // Sudut lutut saat berdiri tegak (> 160°)
+const ANGLE_SQUAT = 100;     // Sudut lutut posisi bawah (default; bisa dikalibrasi)
+const ANGLE_STANDING = 160;  // Sudut lutut berdiri tegak
+const LEAN_LIMIT = 50;       // Sudut torso vs tibia (derajat). Di atas ini = lean berlebih.
+const HEEL_LIFT_LIMIT = 0.06; // Selisih tinggi tumit vs ujung kaki, dinormalisasi panjang tungkai
+
+export interface SquatOptions {
+  /** Ambang bawah hasil kalibrasi personal. */
+  bottom?: number;
+}
 
 export class SquatTracker implements ExerciseTracker {
   readonly config: ExerciseConfig = {
@@ -34,186 +53,147 @@ export class SquatTracker implements ExerciseTracker {
     minVisibility: 0.4,
   };
 
-  private state: 'standing' | 'squatting' = 'standing';
-  private repCount: number = 0;
-  private cleanRepCount: number = 0;
-  private faults: FormFault[] = [];
-  private currentRepHasFault: boolean = false;
-  private minKneeAngleInRep: number = 180;
+  private readonly acc: RepAccumulator;
+  private readonly sides = new SideSelector();
 
-  processLandmarks(landmarks: NormalizedLandmark[], timestamp: number): TrackingResult {
+  constructor(options: SquatOptions = {}) {
+    this.acc = new RepAccumulator(
+      new RepStateMachine({ top: ANGLE_STANDING, bottom: options.bottom ?? ANGLE_SQUAT })
+    );
+  }
+
+  processLandmarks(landmarks: NormalizedLandmark[], timestamp: number, frame: FrameSize = DEFAULT_FRAME): TrackingResult {
     const minVis = this.config.minVisibility;
-    const lHipVis = landmarks[L_HIP]?.visibility ?? 0;
-    const lKneeVis = landmarks[L_KNEE]?.visibility ?? 0;
-    const lAnkVis = landmarks[L_ANKLE]?.visibility ?? 0;
+    const vis = (i: number) => landmarks[i]?.visibility ?? 0;
 
-    const rHipVis = landmarks[R_HIP]?.visibility ?? 0;
-    const rKneeVis = landmarks[R_KNEE]?.visibility ?? 0;
-    const rAnkVis = landmarks[R_ANKLE]?.visibility ?? 0;
-
-    const isLeftValid = lHipVis >= minVis && lKneeVis >= minVis && lAnkVis >= minVis;
-    const isRightValid = rHipVis >= minVis && rKneeVis >= minVis && rAnkVis >= minVis;
-
-    const leftVis = (lHipVis + lKneeVis + lAnkVis) / 3;
-    const rightVis = (rHipVis + rKneeVis + rAnkVis) / 3;
+    const isLeftValid = vis(L_HIP) >= minVis && vis(L_KNEE) >= minVis && vis(L_ANKLE) >= minVis;
+    const isRightValid = vis(R_HIP) >= minVis && vis(R_KNEE) >= minVis && vis(R_ANKLE) >= minVis;
+    const leftVis = (vis(L_HIP) + vis(L_KNEE) + vis(L_ANKLE)) / 3;
+    const rightVis = (vis(R_HIP) + vis(R_KNEE) + vis(R_ANKLE)) / 3;
 
     if (!isLeftValid && !isRightValid) {
-      return {
-        state: this.state,
-        repCount: this.repCount,
-        cleanRepCount: this.cleanRepCount,
-        feedback: 'Pastikan kaki dari pinggul ke pergelangan terlihat kamera',
-        angles: {},
-        confidence: Math.max(leftVis, rightVis),
-        isTracking: false,
-        hasFault: false,
-        activeFault: null,
-      };
+      this.acc.markLost(timestamp);
+      return this.lostResult('Pastikan kaki dari pinggul ke pergelangan terlihat kamera', Math.max(leftVis, rightVis));
     }
+    this.acc.markVisible();
 
-    let primaryKneeAngle: number;
-    const angles: Record<string, number> = {};
+    const useLeft = isLeftValid && (this.sides.choose(leftVis, rightVis) === 'left' || !isRightValid);
+    const p = toPixelSpace(landmarks, frame);
+    const S = useLeft ? L_SHOULDER : R_SHOULDER;
+    const Hp = useLeft ? L_HIP : R_HIP;
+    const K = useLeft ? L_KNEE : R_KNEE;
+    const A = useLeft ? L_ANKLE : R_ANKLE;
+    const heel = useLeft ? L_HEEL : R_HEEL;
+    const toe = useLeft ? L_FOOT_INDEX : R_FOOT_INDEX;
 
-    if (isLeftValid && isRightValid) {
-      const leftAngle = calculateAngle(landmarks[L_HIP], landmarks[L_KNEE], landmarks[L_ANKLE]);
-      const rightAngle = calculateAngle(landmarks[R_HIP], landmarks[R_KNEE], landmarks[R_ANKLE]);
-      angles.leftKnee = leftAngle;
-      angles.rightKnee = rightAngle;
-      primaryKneeAngle = (leftAngle + rightAngle) / 2;
-    } else if (isLeftValid) {
-      primaryKneeAngle = calculateAngle(landmarks[L_HIP], landmarks[L_KNEE], landmarks[L_ANKLE]);
-      angles.leftKnee = primaryKneeAngle;
-    } else {
-      primaryKneeAngle = calculateAngle(landmarks[R_HIP], landmarks[R_KNEE], landmarks[R_ANKLE]);
-      angles.rightKnee = primaryKneeAngle;
-    }
+    const kneeAngle = calculateAngle(p[Hp], p[K], p[A]);
+    const angles: Record<string, number> = { [useLeft ? 'leftKnee' : 'rightKnee']: kneeAngle };
 
-    this.minKneeAngleInRep = Math.min(this.minKneeAngleInRep, primaryKneeAngle);
+    const observed: FormFault[] = [];
 
-    // ── ANALISIS KESALAHAN FORM SQUAT ──
-    let activeFault: FormFault | null = null;
-
-    // Kesalahan 1: Lutut terlalu maju melebihi ujung kaki (Knee forward drift)
-    if (this.state === 'squatting') {
-      const activeKnee = isLeftValid ? landmarks[L_KNEE] : landmarks[R_KNEE];
-      const activeAnkle = isLeftValid ? landmarks[L_ANKLE] : landmarks[R_ANKLE];
-      const kneeDrift = Math.abs(activeKnee.x - activeAnkle.x);
-
-      if (kneeDrift > 0.13) {
-        activeFault = {
-          id: 'knee_over_toes',
-          name: 'Lutut Terlalu Maju',
-          description: 'Dorong pinggul lebih ke belakang seperti ingin duduk di kursi.',
-          timestamp,
-          repNumber: this.repCount + 1,
-          severity: 'warning',
-          bodyPart: 'knee',
-        };
-        this.currentRepHasFault = true;
-      }
-    }
-
-    // Kesalahan 2: Dada terlalu membungkuk ke depan (Torso Collapse)
-    const shoulderVis =
-      (landmarks[L_SHOULDER]?.visibility ?? 0) >= minVis ||
-      (landmarks[R_SHOULDER]?.visibility ?? 0) >= minVis;
-
-    if (shoulderVis && this.state === 'squatting') {
-      const torsoAngle = isLeftValid
-        ? calculateAngle(landmarks[L_SHOULDER], landmarks[L_HIP], landmarks[L_KNEE])
-        : calculateAngle(landmarks[R_SHOULDER], landmarks[R_HIP], landmarks[R_KNEE]);
-
-      angles.torsoLean = torsoAngle;
-      if (torsoAngle < 65) {
-        activeFault = {
+    // Lean berlebih: sudut antara torso (pinggul->bahu) dan tibia (ankle->lutut), keduanya menunjuk ke atas.
+    if (vis(S) >= minVis || vis(Hp) >= minVis) {
+      const lean = angleBetweenVectors(
+        { x: p[S].x - p[Hp].x, y: p[S].y - p[Hp].y },
+        { x: p[K].x - p[A].x, y: p[K].y - p[A].y }
+      );
+      angles.torsoLean = Number(lean.toFixed(1));
+      if (lean > LEAN_LIMIT) {
+        observed.push({
           id: 'torso_collapse',
           name: 'Dada Terlalu Membungkuk',
           description: 'Busungkan dada dan jaga pandangan tetap lurus ke depan.',
           timestamp,
-          repNumber: this.repCount + 1,
           severity: 'warning',
           bodyPart: 'spine',
-        };
-        this.currentRepHasFault = true;
+        });
       }
     }
 
+    // Tumit terangkat: ujung kaki lebih rendah (lebih besar y) dari tumit saat kaki menapak.
+    if (vis(heel) >= minVis && vis(toe) >= minVis) {
+      const legLen = Math.hypot(p[Hp].x - p[A].x, p[Hp].y - p[A].y) || 1;
+      const lift = (p[toe].y - p[heel].y) / legLen;
+      angles.heelLift = Number((lift * 100).toFixed(1));
+      if (lift > HEEL_LIFT_LIMIT) {
+        observed.push({
+          id: 'heel_lift',
+          name: 'Tumit Terangkat',
+          description: 'Jaga tumit tetap menapak lantai selama squat.',
+          timestamp,
+          severity: 'warning',
+          bodyPart: 'feet',
+        });
+      }
+    }
+
+    const partialFault: FormFault = {
+      id: 'shallow_squat',
+      name: 'Jongkok Kurang Dalam (Half Squat)',
+      description: 'Turunkan paha hingga sejajar lantai (90°-100°).',
+      timestamp,
+      severity: 'warning',
+      bodyPart: 'knee',
+    };
+
+    const { event, faults: closed } = this.acc.update(kneeAngle, timestamp, observed, partialFault);
+    const activeFault = observed[0] ?? null;
+
     let feedback: string | undefined;
-
-    // State machine: standing -> squatting -> standing = 1 rep
-    if (primaryKneeAngle <= ANGLE_SQUAT) {
-      if (this.state !== 'squatting') {
-        this.state = 'squatting';
-      }
-      feedback = activeFault ? activeFault.description : 'Bagus! Kedalaman tercapai, dorong berdiri';
-    } else if (primaryKneeAngle >= ANGLE_STANDING) {
-      if (this.state === 'squatting') {
-        this.repCount++;
-
-        // Cek apakah jongkoknya nanggung (Half Squat)
-        if (this.minKneeAngleInRep > ANGLE_SQUAT + 8) {
-          const depthFault: FormFault = {
-            id: 'shallow_squat',
-            name: 'Jongkok Kurang Dalam (Half Squat)',
-            description: 'Turunkan paha hingga sejajar lantai (90°-100°).',
-            timestamp,
-            repNumber: this.repCount,
-            severity: 'warning',
-            bodyPart: 'knee',
-          };
-          this.faults.push(depthFault);
-          this.currentRepHasFault = true;
-          activeFault = depthFault;
-        }
-
-        if (this.currentRepHasFault) {
-          if (activeFault) {
-            this.faults.push(activeFault);
-          }
-        } else {
-          this.cleanRepCount++;
-        }
-
-        this.state = 'standing';
-        this.currentRepHasFault = false;
-        this.minKneeAngleInRep = 180;
-        feedback = activeFault ? `Rep ${this.repCount}: ${activeFault.name}` : 'Rep squat sempurna!';
-      }
+    if (event) {
+      feedback = event.kind === 'partial'
+        ? 'Rep belum dihitung: turunkan pinggul lebih dalam'
+        : closed.length ? `Rep ${this.acc.repCount}: ${closed[0].name}` : 'Rep squat sempurna!';
+    } else if (activeFault) {
+      feedback = activeFault.description;
     } else {
-      feedback = activeFault
-        ? activeFault.description
-        : this.state === 'standing'
-        ? 'Turunkan pinggul lebih rendah'
-        : 'Berdiri hingga lutut lurus kembali';
+      feedback = this.acc.rsm.currentPhase === 'top' ? 'Turunkan pinggul lebih rendah' : 'Berdiri hingga lutut lurus kembali';
     }
 
     return {
-      state: this.state,
-      repCount: this.repCount,
-      cleanRepCount: this.cleanRepCount,
+      state: this.stateLabel(),
+      repCount: this.acc.repCount,
+      cleanRepCount: this.acc.cleanRepCount,
       feedback,
       angles,
       confidence: Math.max(leftVis, rightVis),
       isTracking: true,
       hasFault: activeFault !== null,
       activeFault,
+      lastRep: event ?? undefined,
+      formScore: this.acc.formScore(),
     };
   }
 
   getFaults(): FormFault[] {
-    return this.faults;
+    return this.acc.faults;
   }
 
   getCleanRepCount(): number {
-    return this.cleanRepCount;
+    return this.acc.cleanRepCount;
   }
 
   reset(): void {
-    this.state = 'standing';
-    this.repCount = 0;
-    this.cleanRepCount = 0;
-    this.faults = [];
-    this.currentRepHasFault = false;
-    this.minKneeAngleInRep = 180;
+    this.acc.reset();
+    this.sides.reset();
+  }
+
+  private stateLabel(): string {
+    return this.acc.rsm.currentPhase === 'top' ? 'standing' : 'squatting';
+  }
+
+  private lostResult(feedback: string, confidence: number): TrackingResult {
+    return {
+      state: this.stateLabel(),
+      repCount: this.acc.repCount,
+      cleanRepCount: this.acc.cleanRepCount,
+      feedback,
+      angles: {},
+      confidence,
+      isTracking: false,
+      hasFault: false,
+      activeFault: null,
+      formScore: this.acc.formScore(),
+    };
   }
 }

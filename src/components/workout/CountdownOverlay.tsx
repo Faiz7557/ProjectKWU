@@ -1,16 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { voiceCoach } from '@/lib/audio/voice-coach';
 import { FastForward } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 
 interface CountdownOverlayProps {
   seconds?: number;
   onComplete: () => void;
 }
 
+// Overlay di atas panggung kamera (bukan layar penuh), agar pengguna tetap melihat dirinya.
 export function CountdownOverlay({ seconds = 5, onComplete }: CountdownOverlayProps) {
   const [count, setCount] = useState(seconds);
+  // Simpan callback di ref: perubahan identitas callback tidak boleh me-reset hitungan.
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     // Ucapkan angka countdown awal
@@ -21,9 +28,7 @@ export function CountdownOverlay({ seconds = 5, onComplete }: CountdownOverlayPr
     }
 
     if (count <= 0) {
-      const timer = setTimeout(() => {
-        onComplete();
-      }, 500);
+      const timer = setTimeout(() => onCompleteRef.current(), 500);
       return () => clearTimeout(timer);
     }
 
@@ -32,38 +37,22 @@ export function CountdownOverlay({ seconds = 5, onComplete }: CountdownOverlayPr
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [count, onComplete]);
+  }, [count]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-fade-in">
-      <div className="text-center space-y-4">
-        <span className="text-sm font-bold uppercase tracking-widest text-blue-400 block">
-          Bersiap ke Posisi
-        </span>
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-5 rounded-xl bg-canvas/80 p-4 text-center backdrop-blur-md animate-enter">
+      <p className="text-subhead font-semibold text-accent-text">Bersiap di posisi</p>
 
-        {/* Angka Countdown Animasi */}
-        <div className="relative w-40 h-40 flex items-center justify-center mx-auto">
-          <div className="absolute inset-0 rounded-full border-4 border-blue-500/20 animate-ping opacity-30" />
-          <div className="w-36 h-36 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-2xl shadow-blue-500/50">
-            <span className="text-7xl font-black text-white font-mono transition-transform transform scale-110">
-              {count > 0 ? count : 'GO!'}
-            </span>
-          </div>
-        </div>
+      {/* Angka countdown: animasi pop per hitungan (ketukan ritmis), tanpa loop */}
+      <span key={count} className="num grid size-36 place-items-center rounded-full bg-accent text-metric-l text-on-accent animate-pop">
+        {count > 0 ? count : 'Mulai'}
+      </span>
 
-        <p className="text-slate-300 text-sm max-w-xs mx-auto">
-          Mundurlah sekitar 1.5 - 2 meter dari kamera hingga seluruh tubuh Anda terlihat.
-        </p>
+      <p className="max-w-xs text-callout text-text-2">Mundur 1,5 sampai 2 meter dari kamera agar seluruh tubuh terlihat.</p>
 
-        {/* Tombol Lewati */}
-        <button
-          onClick={onComplete}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold transition-all mt-4"
-        >
-          <FastForward className="w-3.5 h-3.5" />
-          <span>Lewati Countdown</span>
-        </button>
-      </div>
+      <Button variant="tertiary" size="md" onClick={() => onCompleteRef.current()} icon={<FastForward className="size-4" aria-hidden="true" />}>
+        Lewati hitungan
+      </Button>
     </div>
   );
 }

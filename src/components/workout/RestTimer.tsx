@@ -42,29 +42,29 @@ export function RestTimer({
   const progress = Math.min(100, Math.round(((durationSec - timeLeft) / durationSec) * 100));
 
   return (
-    <div className="w-full max-w-md mx-auto bg-slate-900/95 border border-slate-800 rounded-3xl p-6 text-center space-y-6 shadow-2xl backdrop-blur-md animate-fade-in">
+    <div className="w-full max-w-md mx-auto bg-surface border border-separator rounded-lg p-6 text-center space-y-6 shadow-2xl backdrop-blur-md animate-enter">
       {/* Icon & Label */}
       <div className="space-y-2">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+        <div className="w-16 h-16 rounded-md bg-warning-soft border border-warning/30 text-warning flex items-center justify-center mx-auto">
           <Coffee className="w-8 h-8" />
         </div>
-        <span className="text-xs font-bold text-amber-400 uppercase tracking-widest block">
+        <span className="text-xs font-bold text-warning tracking-normal block">
           Waktu Istirahat
         </span>
-        <h2 className="text-2xl font-bold text-slate-100">Tarik Napas & Minum Air</h2>
+        <h2 className="text-2xl font-bold text-text">Tarik Napas & Minum Air</h2>
       </div>
 
       {/* Countdown Clock */}
       <div className="relative py-4">
-        <div className="text-6xl font-black text-amber-400 font-mono tracking-tight">
+        <div className="text-6xl font-bold text-warning num tracking-tight">
           {timeLeft}
-          <span className="text-lg font-bold text-slate-500 ml-1">detik</span>
+          <span className="text-lg font-bold text-text-3 ml-1">detik</span>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full h-2 rounded-full bg-slate-800 mt-4 overflow-hidden">
+        <div className="w-full h-2 rounded-full bg-surface-3 mt-4 overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-1000"
+            className="h-full bg-warning transition-all duration-1000"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -72,13 +72,13 @@ export function RestTimer({
 
       {/* Next Exercise Preview */}
       {nextStep && (
-        <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 text-left space-y-1">
-          <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">
+        <div className="p-4 rounded-md bg-surface-3 border border-border-strong text-left space-y-1">
+          <span className="text-xs font-bold text-accent-text tracking-normal block">
             Gerakan Berikutnya:
           </span>
           <div className="flex items-center justify-between">
-            <span className="text-base font-bold text-slate-100">{nextStep.exerciseName}</span>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300">
+            <span className="text-base font-bold text-text">{nextStep.exerciseName}</span>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-accent-soft text-accent-text">
               {nextStep.targetReps ? `${nextStep.targetReps} Reps` : `${nextStep.targetDurationSec} Detik`}
             </span>
           </div>
@@ -88,7 +88,7 @@ export function RestTimer({
       {/* Skip Button */}
       <button
         onClick={onSkip}
-        className="w-full py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all border border-slate-700"
+        className="w-full py-3 px-4 rounded-md bg-surface-3 hover:bg-surface-3 text-text-2 hover:text-text font-semibold text-xs flex items-center justify-center gap-2 transition-all border border-border-strong"
       >
         <FastForward className="w-4 h-4" />
         <span>Lewati Istirahat (Langsung Lanjut)</span>

@@ -33,6 +33,33 @@ export interface BilateralSymmetry {
   feedbackMessage?: string;
 }
 
+/** Ukuran frame video (piksel). Dipakai untuk koreksi aspect ratio sudut & jarak. */
+export interface FrameSize {
+  width: number;
+  height: number;
+}
+
+/**
+ * Satu repetisi (atau partial rep) yang sudah selesai, dihasilkan RepStateMachine.
+ * Durasi fase dalam milidetik berasal dari sinyal kontinu, bukan dari state biner.
+ */
+export interface RepEvent {
+  kind: 'rep' | 'partial';
+  startedAt: number;
+  endedAt: number;
+  /** Fase turun: awal gerakan -> mencapai bottom (partial: awal -> kembali top) */
+  eccMs: number;
+  /** Tahan di posisi bawah */
+  pauseMs: number;
+  /** Fase naik: bottom -> top */
+  conMs: number;
+  totalMs: number;
+  /** Nilai sinyal terendah selama rep (mis. sudut siku minimum) */
+  extremum: number;
+  /** Rep melewati batas durasi maksimum (lambat) */
+  tooSlow: boolean;
+}
+
 /** Output hasil pemrosesan landmark per frame */
 export interface TrackingResult {
   /** State terkini state machine: mis. "up" | "down" | "standing" | "squatting" | "holding" */
@@ -67,6 +94,12 @@ export interface TrackingResult {
 
   /** Apakah subjek/landmark berhasil terdeteksi dengan confidence cukup */
   isTracking: boolean;
+
+  /** Rep/partial rep yang baru selesai pada frame ini (undefined jika tidak ada) */
+  lastRep?: RepEvent;
+
+  /** Skor form 0-100 = rep bersih / rep total (null jika belum ada rep). Tanpa lantai buatan. */
+  formScore?: number | null;
 }
 
 export type ExerciseType = 'counter' | 'timer';
@@ -94,7 +127,8 @@ export interface ExerciseTracker {
    */
   processLandmarks(
     landmarks: NormalizedLandmark[],
-    timestamp: number
+    timestamp: number,
+    frame?: FrameSize
   ): TrackingResult;
 
   /** Mendapatkan daftar seluruh kesalahan yang terekam sepanjang sesi */

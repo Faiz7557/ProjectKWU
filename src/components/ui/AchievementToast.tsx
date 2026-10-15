@@ -32,15 +32,15 @@ export function AchievementToast({
   if (!visible || (achievements.length === 0 && !leveledUp)) return null;
 
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 pointer-events-auto animate-bounce-subtle">
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 border border-amber-500/40 rounded-3xl p-4 shadow-2xl shadow-amber-500/10 space-y-3">
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4 pointer-events-auto animate-pop">
+      <div className="bg-surface border border-warning/30 rounded-lg p-4 shadow-2xl shadow-2 space-y-3">
         {/* Header Toast */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-sm bg-warning-soft text-warning flex items-center justify-center">
               <Trophy className="w-4 h-4" />
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+            <span className="text-xs font-bold tracking-normal text-warning">
               Pencapaian Terbuka!
             </span>
           </div>
@@ -49,7 +49,7 @@ export function AchievementToast({
               setVisible(false);
               onClose?.();
             }}
-            className="p-1 rounded-full text-slate-400 hover:text-slate-200"
+            className="p-1 rounded-full text-text-2 hover:text-text"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -57,13 +57,13 @@ export function AchievementToast({
 
         {/* Level Up Banner jika ada */}
         {leveledUp && (
-          <div className="p-2.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/30 text-indigo-300 flex items-center justify-center font-black text-sm">
-              <Sparkles className="w-4 h-4 text-indigo-300" />
+          <div className="p-2.5 rounded-md bg-accent-soft border border-accent-text/30 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-sm bg-accent-soft text-accent-text flex items-center justify-center font-bold text-sm">
+              <Sparkles className="w-4 h-4 text-accent-text" />
             </div>
             <div>
-              <div className="text-xs font-bold text-indigo-200">Naik Level {newLevel}!</div>
-              <div className="text-[11px] text-indigo-300/80">Gelar: {levelName}</div>
+              <div className="text-xs font-bold text-accent-text">Naik Level {newLevel}!</div>
+              <div className="text-xs text-accent-text">Gelar: {levelName}</div>
             </div>
           </div>
         )}
@@ -73,14 +73,14 @@ export function AchievementToast({
           {achievements.map((ach) => (
             <div
               key={ach.id}
-              className="flex items-center gap-3 p-2 rounded-2xl bg-slate-800/60 border border-slate-700/60"
+              className="flex items-center gap-3 p-2 rounded-md bg-surface-3 border border-border-strong"
             >
               <div className="text-2xl">{ach.icon}</div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-slate-200 truncate">{ach.name}</div>
-                <div className="text-[10px] text-slate-400 truncate">{ach.description}</div>
+                <div className="text-xs font-bold text-text truncate">{ach.name}</div>
+                <div className="text-xs text-text-2 truncate">{ach.description}</div>
               </div>
-              <div className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold shrink-0">
+              <div className="px-2 py-0.5 rounded-full bg-warning-soft text-warning text-xs font-bold shrink-0">
                 +{ach.xpReward} XP
               </div>
             </div>

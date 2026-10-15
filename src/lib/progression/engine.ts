@@ -1,3 +1,5 @@
+import { STORAGE_KEYS, readJson } from '../storage/storage';
+
 export interface ProgressionResult {
   suggestedTarget: number;
   difficulty: 'easy' | 'normal' | 'challenge';
@@ -39,8 +41,8 @@ export function getExerciseProgression(exerciseId: string): ProgressionResult {
   }
 
   try {
-    const raw = localStorage.getItem('smartfit_workout_history');
-    if (!raw) {
+    const allSessions = readJson<SavedSessionRecord[] | null>(STORAGE_KEYS.workoutHistory, null);
+    if (!allSessions) {
       return {
         suggestedTarget: defaultTarget,
         difficulty: 'normal',
@@ -51,7 +53,6 @@ export function getExerciseProgression(exerciseId: string): ProgressionResult {
       };
     }
 
-    const allSessions: SavedSessionRecord[] = JSON.parse(raw);
     const exerciseSessions = allSessions
       .filter((s) => s.exercise === exerciseId)
       .slice(0, 5); // 5 sesi terbaru
@@ -86,7 +87,9 @@ export function getExerciseProgression(exerciseId: string): ProgressionResult {
     }
 
     // Evaluasi tingkat kesulitan & target
-    if (avgScore >= 85 && trend !== 'down') {
+    // Naikkan target hanya jika form solid DAN rep terakhir sudah menyamai rata-rata.
+    // Tanpa syarat ini target hampir selalu naik tiap sesi (F10).
+    if (avgScore >= 90 && trend !== 'down' && latestVal >= avgVal) {
       const boosted = Math.ceil(Math.max(avgVal * 1.12, latestVal + (isTimer ? 10 : 2)));
       return {
         suggestedTarget: boosted,

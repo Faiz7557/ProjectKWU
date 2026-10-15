@@ -3,7 +3,8 @@ export interface ShareCardData {
   reps: number | null;
   holdDurationSec: number | null;
   sessionDurationSec: number;
-  formScore: number;
+  /** Undefined = belum ada data; kartu menampilkan "—". */
+  formScore?: number;
   caloriesBurned: number;
   cleanReps?: number | null;
 }
@@ -88,7 +89,7 @@ export async function generateShareCard(data: ShareCardData): Promise<string> {
 
   ctx.fillStyle = '#10b981';
   ctx.font = '900 42px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText(`${data.formScore}%`, 175, boxY + 75);
+  ctx.fillText(data.formScore !== undefined ? `${data.formScore}%` : '—', 175, boxY + 75);
   ctx.fillStyle = '#94a3b8';
   ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText('FORM SCORE', 175, boxY + 115);
@@ -140,10 +141,10 @@ export function buildWhatsAppShareUrl(data: ShareCardData): string {
 
   const text = `🔥 Saya baru saja menyelesaikan latihan *${data.exerciseName}* di SMART-FIT!\n\n` +
     `⚡ Hasil: *${mainStat}*\n` +
-    `🎯 Form Score AI: *${data.formScore}%*\n` +
+    (data.formScore !== undefined ? `🎯 Form Score AI: *${data.formScore}%*\n` : '') +
     `🔥 Kalori Terbakar: *${data.caloriesBurned} kcal*\n` +
     `⏱️ Durasi: *${Math.round(data.sessionDurationSec)} detik*\n\n` +
-    `Coba latihan dengan AI vision langsung di browser Anda di SMART-FIT!`;
+    `Coba latihan dengan AI vision langsung di browser kamu di SMART-FIT!`;
 
   return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
 }

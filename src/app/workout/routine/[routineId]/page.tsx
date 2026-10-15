@@ -365,7 +365,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
   if (!routine) {
     if (!isLoaded) {
       return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+        <div className="min-h-screen bg-canvas flex items-center justify-center text-text-2">
           Memuat program sirkuit...
         </div>
       );
@@ -375,30 +375,30 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
 
   if (!currentStep) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+      <div className="min-h-screen bg-canvas flex items-center justify-center text-text-2">
         Gerakan sirkuit tidak ditemukan.
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 flex flex-col justify-between">
+    <div className="min-h-screen bg-canvas text-text p-4 md:p-8 flex flex-col justify-between">
       {/* Top Bar */}
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between mb-4">
         <Link
           href="/workout"
           onClick={() => stopCamera()}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-text-2 hover:text-text transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Kembali</span>
         </Link>
 
         <div className="text-center">
-          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block">
+          <span className="text-xs font-bold text-accent-text tracking-normal block">
             Program Sirkuit
           </span>
-          <h1 className="text-base font-bold text-slate-200">{routine.name}</h1>
+          <h1 className="text-base font-bold text-text">{routine.name}</h1>
         </div>
 
         <div className="w-16" />
@@ -408,41 +408,41 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
       <div className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full space-y-4">
         {/* PHASE 1: OVERVIEW ROUTINE */}
         {phase === 'overview' && (
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl text-left animate-fade-in">
+          <div className="w-full max-w-lg bg-surface border border-separator rounded-lg p-6 md:p-8 space-y-6 shadow-2xl text-left animate-enter">
             <div>
-              <span className="text-xs font-bold text-blue-400 uppercase tracking-widest block mb-1">
+              <span className="text-xs font-bold text-accent-text tracking-normal block mb-1">
                 {routine.level} &bull; ~{routine.estimatedMinutes} Menit
               </span>
-              <h2 className="text-2xl font-black text-slate-100">{routine.name}</h2>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">{routine.description}</p>
+              <h2 className="text-2xl font-bold text-text">{routine.name}</h2>
+              <p className="text-xs text-text-2 mt-2 leading-relaxed">{routine.description}</p>
             </div>
 
             {/* List Steps */}
             <div className="space-y-3">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-text-2 tracking-normal block">
                 Urutan Sirkuit ({routine.steps.length} Gerakan)
               </span>
               <div className="space-y-2">
                 {routine.steps.map((st: RoutineStep, i: number) => (
                   <div
                     key={i}
-                    className="p-3.5 rounded-2xl bg-slate-800/40 border border-slate-800 flex items-center justify-between"
+                    className="p-3.5 rounded-md bg-surface-3 border border-separator flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold font-mono">
+                      <div className="w-7 h-7 rounded-sm bg-accent-soft text-accent-text flex items-center justify-center text-xs font-bold num">
                         {i + 1}
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-slate-200 block">
+                        <span className="text-xs font-bold text-text block">
                           {st.exerciseName}
                         </span>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-xs text-text-2">
                           {st.targetReps ? `${st.targetReps} repetisi` : `${st.targetDurationSec} detik`}
                         </span>
                       </div>
                     </div>
                     {st.restSecAfter > 0 && (
-                      <span className="text-[10px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
+                      <span className="text-xs font-medium text-text-2 bg-surface-3 px-2 py-0.5 rounded-xs">
                         Istirahat {st.restSecAfter}s
                       </span>
                     )}
@@ -453,7 +453,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
 
             <button
               onClick={handleStartRoutine}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 font-bold text-sm text-white shadow-xl shadow-indigo-500/25 transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-md bg-accent hover:bg-accent hover: font-bold text-sm text-on-accent shadow-xl shadow-2 transition-all flex items-center justify-center gap-2"
             >
               <Play className="w-4 h-4 fill-white" />
               <span>Mulai Sirkuit Sekarang</span>
@@ -485,7 +485,9 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
 
         {/* PHASE 3: COUNTDOWN */}
         {phase === 'countdown' && (
-          <CountdownOverlay seconds={5} onComplete={handleCountdownComplete} />
+          <div className="relative min-h-72">
+            <CountdownOverlay seconds={5} onComplete={handleCountdownComplete} />
+          </div>
         )}
 
         {/* PHASE 4: ACTIVE EXERCISE */}
@@ -599,7 +601,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
         )}
       </div>
 
-      <div className="text-center pt-6 text-xs text-slate-600">
+      <div className="text-center pt-6 text-xs text-text-3">
         SMART-FIT v2 &bull; Multi-Exercise Routine Engine
       </div>
     </div>

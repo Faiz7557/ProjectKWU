@@ -4,8 +4,10 @@ import type {
   ExerciseConfig,
   TrackingResult,
   FormFault,
+  FrameSize,
 } from './types';
-import { calculateAngle } from './base-tracker';
+import { calculateAngle, toPixelSpace, bodyDeviation, DEFAULT_FRAME, SideSelector } from './base-tracker';
+import { RepStateMachine, RepAccumulator } from './rep-state-machine';
 
 const L_SHOULDER = 11;
 const R_SHOULDER = 12;
@@ -18,9 +20,14 @@ const R_HIP = 24;
 const L_ANKLE = 27;
 const R_ANKLE = 28;
 
-const ANGLE_DOWN = 95;  // Sudut siku saat posisi bawah (< 95°)
-const ANGLE_UP = 160;   // Sudut siku saat posisi atas lurus (> 160°)
-const MIN_BODY_LINE = 152; // Garis lurus tubuh bahu-pinggul-pergelangan kaki
+const ANGLE_DOWN = 95;  // Sudut siku posisi bawah (default; bisa dikalibrasi)
+const ANGLE_UP = 160;   // Sudut siku posisi atas lurus
+const HIP_DEVIATION_LIMIT = 0.07; // Deviasi pinggul bertanda, dinormalisasi panjang tubuh
+
+export interface PushupOptions {
+  /** Ambang bawah hasil kalibrasi personal. */
+  bottom?: number;
+}
 
 export class PushupTracker implements ExerciseTracker {
   readonly config: ExerciseConfig = {
@@ -37,170 +44,137 @@ export class PushupTracker implements ExerciseTracker {
     minVisibility: 0.4,
   };
 
-  private state: 'up' | 'down' = 'up';
-  private repCount: number = 0;
-  private cleanRepCount: number = 0;
-  private faults: FormFault[] = [];
-  private currentRepHasFault: boolean = false;
-  private minElbowAngleInRep: number = 180;
+  private readonly acc: RepAccumulator;
+  private readonly sides = new SideSelector();
 
-  processLandmarks(landmarks: NormalizedLandmark[], timestamp: number): TrackingResult {
+  constructor(options: PushupOptions = {}) {
+    this.acc = new RepAccumulator(
+      new RepStateMachine({ top: ANGLE_UP, bottom: options.bottom ?? ANGLE_DOWN })
+    );
+  }
+
+  processLandmarks(landmarks: NormalizedLandmark[], timestamp: number, frame: FrameSize = DEFAULT_FRAME): TrackingResult {
     const minVis = this.config.minVisibility;
-    const lShVis = landmarks[L_SHOULDER]?.visibility ?? 0;
-    const lElVis = landmarks[L_ELBOW]?.visibility ?? 0;
-    const lWrVis = landmarks[L_WRIST]?.visibility ?? 0;
+    const vis = (i: number) => landmarks[i]?.visibility ?? 0;
 
-    const rShVis = landmarks[R_SHOULDER]?.visibility ?? 0;
-    const rElVis = landmarks[R_ELBOW]?.visibility ?? 0;
-    const rWrVis = landmarks[R_WRIST]?.visibility ?? 0;
-
-    const isLeftValid = lShVis >= minVis && lElVis >= minVis && lWrVis >= minVis;
-    const isRightValid = rShVis >= minVis && rElVis >= minVis && rWrVis >= minVis;
-
-    const leftVis = (lShVis + lElVis + lWrVis) / 3;
-    const rightVis = (rShVis + rElVis + rWrVis) / 3;
+    const isLeftValid = vis(L_SHOULDER) >= minVis && vis(L_ELBOW) >= minVis && vis(L_WRIST) >= minVis;
+    const isRightValid = vis(R_SHOULDER) >= minVis && vis(R_ELBOW) >= minVis && vis(R_WRIST) >= minVis;
+    const leftVis = (vis(L_SHOULDER) + vis(L_ELBOW) + vis(L_WRIST)) / 3;
+    const rightVis = (vis(R_SHOULDER) + vis(R_ELBOW) + vis(R_WRIST)) / 3;
 
     if (!isLeftValid && !isRightValid) {
-      return {
-        state: this.state,
-        repCount: this.repCount,
-        cleanRepCount: this.cleanRepCount,
-        feedback: 'Posisikan tubuh agar bahu dan lengan terlihat jelas',
-        angles: {},
-        confidence: Math.max(leftVis, rightVis),
-        isTracking: false,
-        hasFault: false,
-        activeFault: null,
-      };
+      this.acc.markLost(timestamp);
+      return this.lostResult('Posisikan tubuh agar bahu dan lengan terlihat jelas', Math.max(leftVis, rightVis));
     }
+    this.acc.markVisible();
 
-    let primaryElbowAngle: number;
-    const angles: Record<string, number> = {};
+    // Sisi tampak samping: pilih sisi yang lebih terlihat (bukan rata-rata sisi tertutup).
+    const useLeft = isLeftValid && (this.sides.choose(leftVis, rightVis) === 'left' || !isRightValid);
+    const p = toPixelSpace(landmarks, frame);
+    const S = useLeft ? L_SHOULDER : R_SHOULDER;
+    const E = useLeft ? L_ELBOW : R_ELBOW;
+    const W = useLeft ? L_WRIST : R_WRIST;
+    const H = useLeft ? L_HIP : R_HIP;
+    const A = useLeft ? L_ANKLE : R_ANKLE;
 
-    if (isLeftValid && isRightValid) {
-      const leftAngle = calculateAngle(landmarks[L_SHOULDER], landmarks[L_ELBOW], landmarks[L_WRIST]);
-      const rightAngle = calculateAngle(landmarks[R_SHOULDER], landmarks[R_ELBOW], landmarks[R_WRIST]);
-      angles.leftElbow = leftAngle;
-      angles.rightElbow = rightAngle;
-      primaryElbowAngle = (leftAngle + rightAngle) / 2;
-    } else if (isLeftValid) {
-      primaryElbowAngle = calculateAngle(landmarks[L_SHOULDER], landmarks[L_ELBOW], landmarks[L_WRIST]);
-      angles.leftElbow = primaryElbowAngle;
-    } else {
-      primaryElbowAngle = calculateAngle(landmarks[R_SHOULDER], landmarks[R_ELBOW], landmarks[R_WRIST]);
-      angles.rightElbow = primaryElbowAngle;
-    }
+    const elbowAngle = calculateAngle(p[S], p[E], p[W]);
+    const angles: Record<string, number> = { [useLeft ? 'leftElbow' : 'rightElbow']: elbowAngle };
 
-    // Rekam sudut siku terdalam selama repetisi ini
-    this.minElbowAngleInRep = Math.min(this.minElbowAngleInRep, primaryElbowAngle);
-
-    // ── ANALISIS KESALAHAN FORM 1: Kelurusan Garis Tubuh (Sagging Hips) ──
-    let activeFault: FormFault | null = null;
-    const hipVisible =
-      (landmarks[L_HIP]?.visibility ?? 0) >= minVis ||
-      (landmarks[R_HIP]?.visibility ?? 0) >= minVis;
-    const ankleVisible =
-      (landmarks[L_ANKLE]?.visibility ?? 0) >= minVis ||
-      (landmarks[R_ANKLE]?.visibility ?? 0) >= minVis;
-
-    if (hipVisible && ankleVisible) {
-      const bodyAngle = isLeftValid
-        ? calculateAngle(landmarks[L_SHOULDER], landmarks[L_HIP], landmarks[L_ANKLE])
-        : calculateAngle(landmarks[R_SHOULDER], landmarks[R_HIP], landmarks[R_ANKLE]);
-
-      angles.bodyLine = bodyAngle;
-
-      if (bodyAngle < MIN_BODY_LINE) {
-        activeFault = {
+    // Garis tubuh bertanda: pinggul melorot (sag) atau terangkat (pike).
+    const observed: FormFault[] = [];
+    if (vis(H) >= minVis && vis(A) >= minVis) {
+      const dev = bodyDeviation(p[S], p[H], p[A]);
+      angles.bodyDeviation = Number((dev * 100).toFixed(1));
+      if (dev > HIP_DEVIATION_LIMIT) {
+        observed.push({
           id: 'sagging_hips',
           name: 'Pinggul Turun / Melengkung',
           description: 'Jaga otot perut kencang agar pinggul sejajar dengan bahu dan kaki.',
           timestamp,
-          repNumber: this.repCount + 1,
           severity: 'warning',
           bodyPart: 'spine',
-        };
-        this.currentRepHasFault = true;
+        });
+      } else if (dev < -HIP_DEVIATION_LIMIT) {
+        observed.push({
+          id: 'pike_hips',
+          name: 'Pinggul Terlalu Naik (Pike)',
+          description: 'Turunkan pinggul agar sejajar lurus dengan garis tubuh.',
+          timestamp,
+          severity: 'warning',
+          bodyPart: 'hips',
+        });
       }
     }
 
+    const partialFault: FormFault = {
+      id: 'incomplete_depth',
+      name: 'Kedalaman Kurang (Half Rep)',
+      description: 'Turunkan dada lebih dekat ke lantai hingga siku menekuk 90°.',
+      timestamp,
+      severity: 'warning',
+      bodyPart: 'elbow',
+    };
+
+    const { event, faults: closed } = this.acc.update(elbowAngle, timestamp, observed, partialFault);
+    const activeFault = observed[0] ?? null;
+
     let feedback: string | undefined;
-
-    // State machine siklus rep: UP -> DOWN -> UP
-    if (primaryElbowAngle <= ANGLE_DOWN) {
-      if (this.state !== 'down') {
-        this.state = 'down';
+    if (event) {
+      if (event.kind === 'partial') {
+        feedback = 'Rep belum dihitung: turunkan dada lebih rendah';
+      } else {
+        feedback = closed.length ? `Rep ${this.acc.repCount}: ${closed[0].name}` : 'Rep sempurna tercatat!';
       }
-      feedback = activeFault ? activeFault.description : 'Bagus! Dorong kembali ke atas';
-    } else if (primaryElbowAngle >= ANGLE_UP) {
-      if (this.state === 'down') {
-        this.repCount++;
-
-        // ── ANALISIS KESALAHAN FORM 2: Setengah Rep (Incomplete Depth) ──
-        if (this.minElbowAngleInRep > ANGLE_DOWN + 5) {
-          const depthFault: FormFault = {
-            id: 'incomplete_depth',
-            name: 'Kedalaman Kurang (Half Rep)',
-            description: 'Turunkan dada lebih dekat ke lantai hingga siku menekuk 90°.',
-            timestamp,
-            repNumber: this.repCount,
-            severity: 'warning',
-            bodyPart: 'elbow',
-          };
-          this.faults.push(depthFault);
-          this.currentRepHasFault = true;
-          activeFault = depthFault;
-        }
-
-        if (this.currentRepHasFault) {
-          if (activeFault) {
-            this.faults.push(activeFault);
-          }
-        } else {
-          this.cleanRepCount++;
-        }
-
-        // Reset tracking repetisi berikutnya
-        this.state = 'up';
-        this.currentRepHasFault = false;
-        this.minElbowAngleInRep = 180;
-        feedback = activeFault ? `Rep ${this.repCount}: ${activeFault.name}` : 'Rep sempurna tercatat!';
-      }
+    } else if (activeFault) {
+      feedback = activeFault.description;
     } else {
-      feedback = activeFault
-        ? activeFault.description
-        : this.state === 'down'
-        ? 'Luruskan lengan sepenuhnya ke atas'
-        : 'Turunkan dada lebih rendah';
+      feedback = this.acc.rsm.currentPhase === 'top' ? 'Turunkan dada lebih rendah' : 'Dorong kembali ke atas';
     }
 
     return {
-      state: this.state,
-      repCount: this.repCount,
-      cleanRepCount: this.cleanRepCount,
+      state: this.stateLabel(),
+      repCount: this.acc.repCount,
+      cleanRepCount: this.acc.cleanRepCount,
       feedback,
       angles,
       confidence: Math.max(leftVis, rightVis),
       isTracking: true,
       hasFault: activeFault !== null,
       activeFault,
+      lastRep: event ?? undefined,
+      formScore: this.acc.formScore(),
     };
   }
 
   getFaults(): FormFault[] {
-    return this.faults;
+    return this.acc.faults;
   }
 
   getCleanRepCount(): number {
-    return this.cleanRepCount;
+    return this.acc.cleanRepCount;
   }
 
   reset(): void {
-    this.state = 'up';
-    this.repCount = 0;
-    this.cleanRepCount = 0;
-    this.faults = [];
-    this.currentRepHasFault = false;
-    this.minElbowAngleInRep = 180;
+    this.acc.reset();
+    this.sides.reset();
+  }
+
+  private stateLabel(): string {
+    return this.acc.rsm.currentPhase === 'top' ? 'up' : 'down';
+  }
+
+  private lostResult(feedback: string, confidence: number): TrackingResult {
+    return {
+      state: this.stateLabel(),
+      repCount: this.acc.repCount,
+      cleanRepCount: this.acc.cleanRepCount,
+      feedback,
+      angles: {},
+      confidence,
+      isTracking: false,
+      hasFault: false,
+      activeFault: null,
+      formScore: this.acc.formScore(),
+    };
   }
 }

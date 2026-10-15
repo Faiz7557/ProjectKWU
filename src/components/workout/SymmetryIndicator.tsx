@@ -24,28 +24,28 @@ export function SymmetryIndicator({ symmetry, className = '' }: SymmetryIndicato
   }
 
   const isWarning = isImbalanced;
-  const barColor = isWarning ? 'bg-amber-500' : 'bg-emerald-400';
-  const textColor = isWarning ? 'text-amber-300' : 'text-emerald-300';
-  const borderColor = isWarning ? 'border-amber-500/40' : 'border-emerald-500/30';
-  const bgColor = isWarning ? 'bg-amber-950/40' : 'bg-slate-900/80';
+  const barColor = isWarning ? 'bg-warning' : 'bg-success';
+  const textColor = isWarning ? 'text-warning' : 'text-success';
+  const borderColor = isWarning ? 'border-warning/30' : 'border-success/30';
+  const bgColor = isWarning ? 'bg-warning-soft' : 'bg-surface';
 
   return (
     <div
-      className={`rounded-2xl border ${borderColor} ${bgColor} backdrop-blur-md px-3.5 py-2 text-xs shadow-xl transition-all duration-300 ${className}`}
+      className={`rounded-md border ${borderColor} ${bgColor} backdrop-blur-md px-3.5 py-2 text-xs shadow-xl transition-all duration-300 ${className}`}
     >
       <div className="flex items-center justify-between gap-3 mb-1.5">
         <div className="flex items-center gap-1.5">
           <Scale className={`w-3.5 h-3.5 ${textColor}`} />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+          <span className="text-xs font-bold tracking-normal text-text-2">
             Simetri {jointName}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <span className={`text-[11px] font-mono font-black ${textColor}`}>
+          <span className={`text-xs num font-bold ${textColor}`}>
             {balanceScore}%
           </span>
-          <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-surface-3 text-text-2">
             {isWarning ? 'Asimetri' : 'Seimbang'}
           </span>
         </div>
@@ -53,10 +53,10 @@ export function SymmetryIndicator({ symmetry, className = '' }: SymmetryIndicato
 
       {/* Balance Slider Bar: L [====|====] R */}
       <div className="relative flex items-center gap-2">
-        <span className="text-[10px] font-bold font-mono text-slate-400">L</span>
-        <div className="relative flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+        <span className="text-xs font-bold num text-text-2">L</span>
+        <div className="relative flex-1 h-2 bg-surface-3 rounded-full overflow-hidden">
           {/* Garis tengah ideal */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-slate-600 z-10" />
+          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-surface-3 z-10" />
 
           {/* Indikator titik keseimbangan */}
           <div
@@ -66,12 +66,12 @@ export function SymmetryIndicator({ symmetry, className = '' }: SymmetryIndicato
             }}
           />
         </div>
-        <span className="text-[10px] font-bold font-mono text-slate-400">R</span>
+        <span className="text-xs font-bold num text-text-2">R</span>
       </div>
 
       {/* Sub-label informasi */}
       {feedbackMessage && (
-        <div className="mt-1 text-[10px] text-slate-400 font-medium truncate text-center">
+        <div className="mt-1 text-xs text-text-2 font-medium truncate text-center">
           {feedbackMessage} ({diffDegrees}°)
         </div>
       )}

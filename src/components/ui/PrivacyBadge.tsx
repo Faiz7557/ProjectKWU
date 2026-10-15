@@ -1,136 +1,87 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldCheck, Info, X, Lock } from 'lucide-react';
+import { ShieldCheck, Info, Check } from 'lucide-react';
+import { cn } from '@/lib/cn';
+import { Button } from './Button';
+import { Dialog } from './Dialog';
 
 interface PrivacyBadgeProps {
   variant?: 'compact' | 'full';
   className?: string;
 }
 
+const POINTS = [
+  { title: 'Analisis di perangkat', body: 'Gerakan kamu dihitung langsung di browser, tidak di server.' },
+  { title: 'Video tidak dikirim', body: 'Tidak ada satu frame video atau foto pun yang dikirim ke server kami.' },
+  { title: 'Yang disimpan hanya angka', body: 'Jumlah rep, durasi, dan skor form saja yang dicatat di riwayat kamu.' },
+];
+
 export function PrivacyBadge({ variant = 'compact', className = '' }: PrivacyBadgeProps) {
-  const [showModal, setShowModal] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const dialog = (
+    <Dialog
+      open={open}
+      onClose={() => setOpen(false)}
+      title="Privasi kamera terjamin"
+      description="Video kamu diproses sepenuhnya di perangkat ini. Tidak pernah keluar dari HP atau laptop kamu."
+    >
+      <ul className="space-y-3">
+        {POINTS.map((p) => (
+          <li key={p.title} className="flex items-start gap-3">
+            <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-success-soft text-success">
+              <Check className="size-4" aria-hidden="true" />
+            </span>
+            <span>
+              <strong className="block text-subhead font-semibold text-text">{p.title}</strong>
+              <span className="text-footnote text-text-2">{p.body}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <Button variant="secondary" className="mt-6 w-full" onClick={() => setOpen(false)}>
+        Mengerti
+      </Button>
+    </Dialog>
+  );
 
   if (variant === 'full') {
     return (
       <>
-        <div
-          onClick={() => setShowModal(true)}
-          className={`cursor-pointer inline-flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/15 hover:border-emerald-500/30 transition-all ${className}`}
-          role="button"
-          tabIndex={0}
-          aria-label="Jaminan Privasi SMART-FIT"
+        <Button
+          variant="tertiary"
+          onClick={() => setOpen(true)}
+          className={cn('h-auto justify-start rounded-md bg-success-soft px-4 py-3 text-left text-success', className)}
+          icon={<ShieldCheck className="size-5 shrink-0" aria-hidden="true" />}
         >
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div className="text-left">
-            <div className="text-xs font-bold text-emerald-200 flex items-center gap-1.5">
-              <span>Privasi Terlindungi</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                100% Lokal
-              </span>
-            </div>
-            <p className="text-[11px] text-emerald-400/80">
-              Video dianalisis di browser Anda &bull; Nol video ke server
-            </p>
-          </div>
-        </div>
-
-        {/* Modal Info Detail */}
-        {showModal && (
-          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 relative space-y-4 shadow-2xl">
-              <button
-                onClick={() => setShowModal(false)}
-                className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <Lock className="w-6 h-6" />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-bold text-slate-100">Jaminan Privasi Zero-Server</h3>
-                <p className="text-sm text-slate-400 mt-1">
-                  Bagaimana SMART-FIT v2 menjaga privasi penuh pengguna:
-                </p>
-              </div>
-
-              <ul className="space-y-2.5 text-xs text-slate-300">
-                <li className="flex items-start gap-2.5">
-                  <span className="text-emerald-400 font-bold mt-0.5">✓</span>
-                  <span><strong>Inferensi On-Device:</strong> Model MediaPipe BlazePose dijalankan via WebAssembly langsung di prosesor/GPU perangkat Anda.</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="text-emerald-400 font-bold mt-0.5">✓</span>
-                  <span><strong>Zero Video Streaming:</strong> Tidak ada satu frame video atau foto pun yang pernah dikirimkan ke cloud atau server kami.</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <span className="text-emerald-400 font-bold mt-0.5">✓</span>
-                  <span><strong>Hanya Metadata Disimpan:</strong> Hanya total repetisi, durasi latihan, dan skor form yang dicatat ke akun riwayat Anda.</span>
-                </li>
-              </ul>
-
-              <button
-                onClick={() => setShowModal(false)}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
-              >
-                Tutup Informasi
-              </button>
-            </div>
-          </div>
-        )}
+          <span className="flex flex-col items-start">
+            <span className="text-subhead font-semibold">Privasi terlindungi</span>
+            <span className="text-footnote font-normal text-text-2">Video diproses di perangkat kamu</span>
+          </span>
+          <Info className="ml-auto size-4 shrink-0 text-text-3" aria-hidden="true" />
+        </Button>
+        {dialog}
       </>
     );
   }
 
-  // Variant: Compact (untuk header camera atau bar atas)
+  // Compact: untuk header kamera / bar atas
   return (
     <>
       <button
         type="button"
-        onClick={() => setShowModal(true)}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 transition-all text-xs font-medium ${className}`}
-        title="Klik untuk detail privasi"
+        onClick={() => setOpen(true)}
+        className={cn(
+          'pressable inline-flex min-h-11 items-center gap-1.5 rounded-full bg-success-soft px-3 text-caption font-semibold text-success',
+          className,
+        )}
       >
-        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-        <span className="text-[11px] font-semibold">Video 100% On-Device</span>
-        <Info className="w-3 h-3 text-emerald-400/60 ml-0.5" />
+        <ShieldCheck className="size-4" aria-hidden="true" />
+        <span>Video tetap di perangkat</span>
+        <Info className="size-3.5" aria-hidden="true" />
       </button>
-
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in text-left">
-          <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 relative space-y-4 shadow-2xl">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-slate-200"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <Lock className="w-6 h-6" />
-            </div>
-
-            <div>
-              <h3 className="text-lg font-bold text-slate-100">Privasi Kamera Terjamin</h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Video Anda diproses 100% di browser lokal Anda menggunakan WebAssembly. Video tidak pernah keluar dari gawai Anda.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setShowModal(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
-            >
-              Mengerti
-            </button>
-          </div>
-        </div>
-      )}
+      {dialog}
     </>
   );
 }

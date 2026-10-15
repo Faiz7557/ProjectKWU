@@ -1,42 +1,29 @@
 import { UserGamificationState, WorkoutSessionSummaryStats, Achievement } from './types';
 import { getLevelInfo, evaluateAchievements } from './achievements';
+import { STORAGE_KEYS, readJson, writeJson, migrateStorage } from '../storage/storage';
 
-const STORAGE_KEY = 'smartfit_gamification';
+function emptyState(): UserGamificationState {
+  return {
+    streak: { current: 0, longest: 0, lastWorkoutDate: null },
+    totalXp: 0,
+    level: 1,
+    levelName: 'Pemula',
+    unlockedAchievementIds: [],
+    stats: { totalSessions: 0, totalReps: 0, exercises: [] },
+  };
+}
 
 export function getGamificationState(): UserGamificationState {
-  if (typeof window === 'undefined') {
-    return {
-      streak: { current: 0, longest: 0, lastWorkoutDate: null },
-      totalXp: 0,
-      level: 1,
-      levelName: 'Pemula',
-      unlockedAchievementIds: [],
-    };
-  }
+  if (typeof window === 'undefined') return emptyState();
+  migrateStorage();
 
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const initial: UserGamificationState = {
-        streak: { current: 0, longest: 0, lastWorkoutDate: null },
-        totalXp: 0,
-        level: 1,
-        levelName: 'Pemula',
-        unlockedAchievementIds: [],
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-      return initial;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return {
-      streak: { current: 0, longest: 0, lastWorkoutDate: null },
-      totalXp: 0,
-      level: 1,
-      levelName: 'Pemula',
-      unlockedAchievementIds: [],
-    };
+  const stored = readJson<UserGamificationState | null>(STORAGE_KEYS.gamification, null);
+  if (!stored) {
+    const initial = emptyState();
+    writeJson(STORAGE_KEYS.gamification, initial);
+    return initial;
   }
+  return { ...emptyState(), ...stored };
 }
 
 export interface SessionCompletionResult {
@@ -98,26 +85,12 @@ export function recordWorkoutSessionCompletion(session: {
 
   const earnedXp = Math.max(15, Math.round((baseScore + formBonus) * multiplier));
 
-  // 3. Baca riwayat untuk statistik kumulatif
-  let totalSessions = 1;
-  let totalReps = reps;
-  const uniqueExercises = new Set<string>([session.exercise]);
-
-  try {
-    const historyRaw = localStorage.getItem('smartfit_workout_history');
-    if (historyRaw) {
-      const historyList = JSON.parse(historyRaw);
-      if (Array.isArray(historyList)) {
-        totalSessions = historyList.length;
-        for (const item of historyList) {
-          if (item.reps) totalReps += item.reps;
-          if (item.exercise) uniqueExercises.add(item.exercise);
-        }
-      }
-    }
-  } catch {
-    // Ignore history reading error
-  }
+  // 3. Statistik kumulatif: counter terpisah, tidak bergantung pada history
+  // (history sudah berisi sesi ini saat fungsi dipanggil, dan dibatasi 50 item).
+  const prevStats = currentState.stats;
+  const exercises = new Set<string>([...prevStats.exercises, session.exercise]);
+  const totalSessions = prevStats.totalSessions + 1;
+  const totalReps = prevStats.totalReps + reps;
 
   const stats: WorkoutSessionSummaryStats = {
     exercise: session.exercise,
@@ -134,7 +107,7 @@ export function recordWorkoutSessionCompletion(session: {
   const newlyUnlocked = evaluateAchievements(
     stats,
     currentState.unlockedAchievementIds,
-    uniqueExercises.size
+    exercises.size
   );
 
   let achievementXpReward = 0;
@@ -159,13 +132,10 @@ export function recordWorkoutSessionCompletion(session: {
     level: levelInfo.level,
     levelName: levelInfo.levelName,
     unlockedAchievementIds: newUnlockedIds,
+    stats: { totalSessions, totalReps, exercises: [...exercises] },
   };
 
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedState));
-  } catch (e) {
-    console.warn('Gagal menyimpan status gamifikasi ke localStorage:', e);
-  }
+  writeJson(STORAGE_KEYS.gamification, updatedState);
 
   return {
     state: updatedState,

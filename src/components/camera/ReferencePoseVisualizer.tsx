@@ -155,18 +155,18 @@ export function ReferencePoseVisualizer({
   }, [currentPhase]);
 
   return (
-    <div className={`bg-slate-900/90 border border-slate-800 rounded-3xl p-5 md:p-6 text-white shadow-xl ${className}`}>
+    <div className={`bg-surface border border-separator rounded-lg p-5 md:p-6 text-text shadow-xl ${className}`}>
       {/* Header Info */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-sm bg-accent-soft text-accent-text flex items-center justify-center">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 block">
+            <span className="text-xs font-bold tracking-normal text-accent-text block">
               Contoh Form Skeletal Ideal
             </span>
-            <h3 className="text-base font-bold text-slate-100">
+            <h3 className="text-base font-bold text-text">
               {currentPhase.name}
             </h3>
           </div>
@@ -174,7 +174,7 @@ export function ReferencePoseVisualizer({
 
         {/* Phase selector tabs / toggle buttons */}
         {phases.length > 1 && (
-          <div className="flex items-center gap-1.5 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-1.5 bg-canvas p-1 rounded-sm border border-separator">
             {phases.map((p, idx) => (
               <button
                 key={idx}
@@ -182,10 +182,10 @@ export function ReferencePoseVisualizer({
                   setIsAutoPlaying(false);
                   setActivePhaseIndex(idx);
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-2.5 py-1 rounded-xs text-xs font-semibold transition-all ${
                   activePhaseIndex === idx
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-accent text-on-accent shadow-sm'
+                    : 'text-text-2 hover:text-text'
                 }`}
               >
                 Posisi {idx + 1}
@@ -195,10 +195,10 @@ export function ReferencePoseVisualizer({
             <button
               onClick={() => setIsAutoPlaying(!isAutoPlaying)}
               title={isAutoPlaying ? 'Jeda Animasi' : 'Putar Animasi Bergantian'}
-              className={`p-1 rounded-lg transition-colors ml-1 ${
+              className={`p-1 rounded-xs transition-colors ml-1 ${
                 isAutoPlaying
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'text-slate-500 hover:text-slate-300'
+                  ? 'bg-success-soft text-success'
+                  : 'text-text-3 hover:text-text-2'
               }`}
             >
               {isAutoPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -208,7 +208,7 @@ export function ReferencePoseVisualizer({
       </div>
 
       {/* Visual Canvas Skeleton */}
-      <div className="relative w-full aspect-[4/3] max-h-64 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/80 mb-4 flex items-center justify-center">
+      <div className="relative w-full aspect-[4/3] max-h-64 rounded-md overflow-hidden bg-canvas border border-separator mb-4 flex items-center justify-center">
         <canvas
           ref={canvasRef}
           width={480}
@@ -217,27 +217,27 @@ export function ReferencePoseVisualizer({
         />
 
         {/* Orientation badge */}
-        <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 text-[10px] font-semibold text-slate-400 flex items-center gap-1">
-          <Compass className="w-3 h-3 text-blue-400" />
+        <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full bg-surface backdrop-blur-sm border border-border-strong text-xs font-semibold text-text-2 flex items-center gap-1">
+          <Compass className="w-3 h-3 text-accent-text" />
           <span>Tampak {refData.orientation === 'front' ? 'Depan' : 'Samping'}</span>
         </div>
 
         {/* Indicator phase subtitle */}
-        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-blue-500/10 backdrop-blur-sm border border-blue-500/20 text-[10px] font-semibold text-blue-300">
+        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-accent-soft backdrop-blur-sm border border-accent-text/30 text-xs font-semibold text-accent-text">
           {currentPhase.subtitle}
         </div>
       </div>
 
       {/* Deskripsi & Checkpoint Form yang Benar */}
-      <div className="space-y-2.5 bg-slate-950/40 border border-slate-800/50 rounded-2xl p-3.5">
-        <p className="text-xs text-slate-300 leading-relaxed">
+      <div className="space-y-2.5 bg-canvas border border-separator rounded-md p-3.5">
+        <p className="text-xs text-text-2 leading-relaxed">
           {currentPhase.description}
         </p>
 
-        <div className="space-y-1.5 pt-1 border-t border-slate-800/60">
+        <div className="space-y-1.5 pt-1 border-t border-separator">
           {currentPhase.checkpoints.map((cp, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+            <div key={i} className="flex items-start gap-2 text-xs text-text-2">
+              <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" />
               <span>{cp}</span>
             </div>
           ))}

@@ -9,6 +9,8 @@ import { CameraGuide } from '@/components/camera/CameraGuide';
 import { CameraFeed } from '@/components/camera/CameraFeed';
 import { EnvironmentCheck } from '@/components/camera/EnvironmentCheck';
 import { WorkoutHUD } from '@/components/workout/WorkoutHUD';
+import { Dialog } from '@/components/ui/Dialog';
+import { Button } from '@/components/ui/Button';
 import { CountdownOverlay } from '@/components/workout/CountdownOverlay';
 import { SessionSummary } from '@/components/workout/SessionSummary';
 import { voiceCoach } from '@/lib/audio/voice-coach';
@@ -21,7 +23,7 @@ import { recordWorkoutSessionCompletion } from '@/lib/gamification/streak';
 import { AchievementToast } from '@/components/ui/AchievementToast';
 import type { Achievement } from '@/lib/gamification/types';
 import Link from 'next/link';
-import { ArrowLeft, AlertCircle, X } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 
 interface WorkoutPageProps {
   params: Promise<{
@@ -429,30 +431,30 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
 
   if (!tracker) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+      <div className="min-h-screen bg-canvas flex items-center justify-center text-text-2">
         Memuat tracker latihan...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 flex flex-col justify-between">
+    <div className="min-h-screen bg-canvas text-text p-4 md:p-8 flex flex-col justify-between">
       {/* Top Bar Navigation */}
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between mb-6">
         <Link
           href="/workout"
           onClick={() => stopCamera()}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-text-2 hover:text-text transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Kembali</span>
         </Link>
 
         <div className="text-center">
-          <span className="text-xs font-bold text-blue-400 uppercase tracking-widest block">
+          <span className="text-xs font-bold text-accent-text tracking-normal block">
             Latihan
           </span>
-          <h1 className="text-lg font-bold text-slate-200">{tracker.config.name}</h1>
+          <h1 className="text-lg font-bold text-text">{tracker.config.name}</h1>
         </div>
 
         <div className="w-16" /> {/* Spacer untuk balance centering */}
@@ -489,7 +491,9 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
 
         {/* FASE 3: Countdown Buffer Sebelum Latihan Dimulai */}
         {sessionPhase === 'countdown' && (
-          <CountdownOverlay seconds={5} onComplete={handleCountdownComplete} />
+          <div className="relative min-h-72">
+            <CountdownOverlay seconds={5} onComplete={handleCountdownComplete} />
+          </div>
         )}
 
         {/* FASE 4: Active Workout Flow */}
@@ -497,7 +501,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
           <div className="w-full space-y-6">
             {/* Error handling jika kamera ditolak / model gagal */}
             {(cameraError || modelError) && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-center gap-3 text-sm text-red-300 max-w-2xl mx-auto">
+              <div className="bg-danger-soft border border-danger/30 rounded-md p-4 flex items-center gap-3 text-sm text-danger max-w-2xl mx-auto">
                 <AlertCircle className="w-5 h-5 shrink-0" />
                 <span>{cameraError || modelError}</span>
               </div>
@@ -550,33 +554,26 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
         )}
 
         {/* Modal Pop-up Contoh Form Ideal saat Latihan Berjalan */}
-        {showReferenceModal && (
-          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-            <div className="w-full max-w-lg relative space-y-3">
-              <button
-                onClick={() => {
-                  setShowReferenceModal(false);
-                  startInference();
-                }}
-                className="absolute -top-3 -right-3 z-10 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 shadow-xl border border-slate-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <ReferencePoseVisualizer exerciseId={tracker.config.id} autoPlayDefault={true} />
-
-              <button
-                onClick={() => {
-                  setShowReferenceModal(false);
-                  startInference();
-                }}
-                className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 font-bold text-sm text-white shadow-lg shadow-blue-500/25 transition-all"
-              >
-                Tutup & Lanjutkan Latihan
-              </button>
-            </div>
-          </div>
-        )}
+        <Dialog
+          open={showReferenceModal}
+          onClose={() => {
+            setShowReferenceModal(false);
+            startInference();
+          }}
+          title="Contoh form"
+          description="Ikuti gerakan ini. Latihan lanjut setelah dialog ditutup."
+        >
+          <ReferencePoseVisualizer exerciseId={tracker.config.id} autoPlayDefault={true} />
+          <Button
+            className="mt-5 w-full"
+            onClick={() => {
+              setShowReferenceModal(false);
+              startInference();
+            }}
+          >
+            Tutup dan lanjutkan latihan
+          </Button>
+        </Dialog>
 
         {/* FASE 5: Ringkasan Selesai */}
         {sessionPhase === 'summary' && (
@@ -593,6 +590,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
               avgTutSec={tempoState?.lastRepTempo?.totalTUTSec}
               caloriesBurned={caloriesBurned}
               faultsSummary={faultsSummary}
+              celebrate={unlockedAchievements.length > 0 || leveledUp}
               onRestart={handleRestart}
             />
 
@@ -613,10 +611,6 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
         )}
       </div>
 
-      {/* Footer Info */}
-      <div className="text-center pt-8 text-xs text-slate-600">
-        SMART-FIT v2 &bull; Client-Side BlazePose &bull; Zero Server Video
-      </div>
     </div>
   );
 }
