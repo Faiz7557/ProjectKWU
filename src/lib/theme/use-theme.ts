@@ -1,5 +1,6 @@
 'use client';
 import { useSyncExternalStore } from 'react';
+import { themeColor } from '@/lib/design/tokens';
 
 export type ThemePref = 'dark' | 'light' | 'system';
 const KEY = 'smartfit-theme';
@@ -11,7 +12,7 @@ function apply(p: ThemePref) {
   const swap = () => {
     d.dataset.theme = t;
     d.style.colorScheme = t;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'light' ? '#F5F5F7' : '#09090B');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor[t]);
   };
   // Apple: hindari lonjakan kecerahan mendadak → cross-fade, kecuali reduced motion
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -25,7 +26,7 @@ export function setThemePref(p: ThemePref) {
   apply(p);
   listeners.forEach((l) => l());
 }
-export const getThemePref = (): ThemePref => (localStorage.getItem(KEY) as ThemePref) || 'dark';
+export const getThemePref = (): ThemePref => (localStorage.getItem(KEY) as ThemePref) || 'light';
 
 function subscribe(cb: () => void) {
   listeners.add(cb);
@@ -42,4 +43,4 @@ function subscribe(cb: () => void) {
   };
 }
 
-export const useThemePref = () => useSyncExternalStore(subscribe, getThemePref, () => 'dark' as ThemePref);
+export const useThemePref = () => useSyncExternalStore(subscribe, getThemePref, () => 'light' as ThemePref);
