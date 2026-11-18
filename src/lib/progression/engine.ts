@@ -99,7 +99,7 @@ export function getExerciseProgression(exerciseId: string): ProgressionResult {
         suggestedTarget: boosted,
         difficulty: 'challenge',
         trend: 'up',
-        coachTip: `Form Anda sangat solid (${avgScore}%)! Tantang diri dengan target ${boosted} ${
+        coachTip: `Form kamu sangat solid (${avgScore}%)! Tantang diri dengan target ${boosted} ${
           isTimer ? 'detik' : 'rep'
         }.`,
         avgFormScore: avgScore,

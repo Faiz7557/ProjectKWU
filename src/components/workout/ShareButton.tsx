@@ -78,7 +78,7 @@ export function ShareButton({ data }: ShareButtonProps) {
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="pressable flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-success px-4 text-subhead font-semibold text-on-success"
+            className="pressable flex min-h-11 w-full items-center justify-center gap-2 bg-panel-7 px-4 text-subhead font-semibold text-on-panel-7"
           >
             <MessageCircle className="size-4" aria-hidden="true" />
             <span>Bagikan ke WhatsApp</span>
@@ -88,7 +88,7 @@ export function ShareButton({ data }: ShareButtonProps) {
             {isGenerating ? (
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             ) : downloaded ? (
-              <Check className="size-4 text-success" aria-hidden="true" />
+              <Check className="size-4" aria-hidden="true" />
             ) : (
               <Download className="size-4" aria-hidden="true" />
             )}

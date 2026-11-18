@@ -167,4 +167,15 @@ html:has(dialog[open]) { overflow: hidden; }
   .panel-6 { background: var(--panel-6); color: var(--on-panel-6); --text: var(--on-panel-6); --text-2: var(--on-panel-6); --text-3: var(--on-panel-6); --accent-text: var(--on-panel-6); --separator: color-mix(in srgb, var(--on-panel-6) 20%, transparent); }
   .panel-7 { background: var(--panel-7); color: var(--on-panel-7); --text: var(--on-panel-7); --text-2: var(--on-panel-7); --text-3: var(--on-panel-7); --accent-text: var(--on-panel-7); --separator: color-mix(in srgb, var(--on-panel-7) 20%, transparent); }
   .panel-8 { background: var(--panel-8); color: var(--on-panel-8); --text: var(--on-panel-8); --text-2: var(--on-panel-8); --text-3: var(--on-panel-8); --accent-text: var(--on-panel-8); --separator: color-mix(in srgb, var(--on-panel-8) 20%, transparent); }
+
+  /* Permukaan netral di dalam panel kembali ke token tema; tanpa ini teks ink jatuh di atas surface gelap (tema gelap). */
+  :is(.panel-1, .panel-2, .panel-3, .panel-4, .panel-5, .panel-6, .panel-7, .panel-8) :is(.bg-canvas, .bg-surface, .bg-surface-2, .bg-surface-3) {
+    color: var(--theme-text); --text: var(--theme-text); --text-2: var(--theme-text-2); --text-3: var(--theme-text-3);
+    --accent-text: var(--theme-accent-text); --separator: var(--theme-separator);
+  }
+}
+/* Salinan token teks tema, dihitung di <html> sehingga tidak ikut tertimpa .panel-N di bawahnya. */
+:root, [data-theme] {
+  --theme-text: var(--text); --theme-text-2: var(--text-2); --theme-text-3: var(--text-3);
+  --theme-accent-text: var(--accent-text); --theme-separator: var(--separator);
 }

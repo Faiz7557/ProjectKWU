@@ -24,28 +24,25 @@ export function SymmetryIndicator({ symmetry, className = '' }: SymmetryIndicato
   }
 
   const isWarning = isImbalanced;
-  const barColor = isWarning ? 'bg-warning' : 'bg-success';
-  const textColor = isWarning ? 'text-warning' : 'text-success';
-  const borderColor = isWarning ? 'border-warning/30' : 'border-success/30';
-  const bgColor = isWarning ? 'bg-warning-soft' : 'bg-surface';
+  const panelTone = isWarning ? 'panel-8' : 'panel-7';
 
   return (
     <div
-      className={`rounded-md border ${borderColor} ${bgColor} backdrop-blur-md px-3.5 py-2 text-xs shadow-xl transition-all duration-300 ${className}`}
+      className={`${panelTone} px-3.5 py-2 text-xs transition-all duration-300 ${className}`}
     >
       <div className="flex items-center justify-between gap-3 mb-1.5">
         <div className="flex items-center gap-1.5">
-          <Scale className={`w-3.5 h-3.5 ${textColor}`} />
+          <Scale className="w-3.5 h-3.5" aria-hidden="true" />
           <span className="text-xs font-bold tracking-normal text-text-2">
             Simetri {jointName}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <span className={`text-xs num font-bold ${textColor}`}>
+          <span className={`text-xs num font-bold`}>
             {balanceScore}%
           </span>
-          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-surface-3 text-text-2">
+          <span className="text-xs font-bold px-1.5 py-0.5 bg-ink text-paper">
             {isWarning ? 'Asimetri' : 'Seimbang'}
           </span>
         </div>
@@ -54,13 +51,13 @@ export function SymmetryIndicator({ symmetry, className = '' }: SymmetryIndicato
       {/* Balance Slider Bar: L [====|====] R */}
       <div className="relative flex items-center gap-2">
         <span className="text-xs font-bold num text-text-2">L</span>
-        <div className="relative flex-1 h-2 bg-surface-3 rounded-full overflow-hidden">
+        <div className="relative flex-1 h-2 bg-ink/20 overflow-hidden">
           {/* Garis tengah ideal */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-surface-3 z-10" />
+          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-ink z-10" />
 
           {/* Indikator titik keseimbangan */}
           <div
-            className={`absolute top-0 bottom-0 w-3 rounded-full transition-all duration-150 ${barColor} shadow-md`}
+            className={`absolute top-0 bottom-0 w-3 transition-all duration-150 bg-ink`}
             style={{
               left: `calc(50% + ${offsetPercent}% - 6px)`,
             }}

@@ -14,7 +14,7 @@ interface CustomRoutineBuilderProps {
   onCreated: (routine: WorkoutRoutine) => void;
 }
 
-const FIELD = 'w-full rounded-sm border border-separator bg-canvas px-3 py-2.5 text-callout text-text placeholder:text-text-3';
+const FIELD = 'w-full border border-border-strong bg-canvas px-3 py-2.5 text-callout text-text placeholder:text-text-3';
 
 export function CustomRoutineBuilder({ isOpen, onClose, onCreated }: CustomRoutineBuilderProps) {
   const availableExercises = getAllExerciseConfigs();
@@ -144,7 +144,7 @@ export function CustomRoutineBuilder({ isOpen, onClose, onCreated }: CustomRouti
 
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-subhead font-semibold text-text">Urutan gerakan ({steps.length})</p>
+            <p className="font-display text-headline text-text">Urutan gerakan ({steps.length})</p>
             <span className="num flex items-center gap-1 text-footnote text-text-2">
               <Clock className="size-3.5" aria-hidden="true" />~{estimatedMinutes} menit
             </span>
@@ -152,8 +152,8 @@ export function CustomRoutineBuilder({ isOpen, onClose, onCreated }: CustomRouti
 
           <ol className="max-h-72 space-y-2.5 overflow-y-auto pr-1">
             {steps.map((step, idx) => (
-              <li key={idx} className="flex flex-wrap items-center gap-2.5 rounded-md border border-separator bg-canvas p-3">
-                <span className="num grid size-7 shrink-0 place-items-center rounded-full bg-surface-3 text-footnote font-semibold text-text-2">
+              <li key={idx} className="flex flex-wrap items-center gap-2.5 bg-surface-2 p-3">
+                <span className="num grid size-7 shrink-0 place-items-center bg-accent font-display text-footnote font-bold text-on-accent">
                   {idx + 1}
                 </span>
 
@@ -164,7 +164,7 @@ export function CustomRoutineBuilder({ isOpen, onClose, onCreated }: CustomRouti
                   id={`step-ex-${idx}`}
                   value={step.exerciseId}
                   onChange={(e) => handleUpdateStep(idx, 'exerciseId', e.target.value)}
-                  className="min-h-11 rounded-sm border border-border-strong bg-surface px-2.5 text-subhead font-medium text-text"
+                  className="min-h-11 border border-border-strong bg-canvas px-2.5 text-subhead font-medium text-text"
                 >
                   {availableExercises.map((ex) => (
                     <option key={ex.id} value={ex.id}>
@@ -187,7 +187,7 @@ export function CustomRoutineBuilder({ isOpen, onClose, onCreated }: CustomRouti
                     onChange={(e) =>
                       handleUpdateStep(idx, step.targetDurationSec !== undefined ? 'targetDurationSec' : 'targetReps', Number(e.target.value))
                     }
-                    className="num min-h-11 w-16 rounded-sm border border-border-strong bg-surface px-2 text-center text-text"
+                    className="num min-h-11 w-16 border border-border-strong bg-canvas px-2 text-center text-text"
                   />
                   <span className="text-footnote text-text-2">{step.targetDurationSec !== undefined ? 'detik' : 'rep'}</span>
                 </div>
@@ -200,7 +200,7 @@ export function CustomRoutineBuilder({ isOpen, onClose, onCreated }: CustomRouti
                     id={`step-rest-${idx}`}
                     value={step.restSecAfter}
                     onChange={(e) => handleUpdateStep(idx, 'restSecAfter', Number(e.target.value))}
-                    className="num min-h-11 rounded-sm border border-border-strong bg-surface px-2 text-footnote text-text"
+                    className="num min-h-11 border border-border-strong bg-canvas px-2 text-footnote text-text"
                   >
                     <option value={0}>0 dtk</option>
                     <option value={15}>15 dtk</option>
@@ -213,7 +213,7 @@ export function CustomRoutineBuilder({ isOpen, onClose, onCreated }: CustomRouti
                     type="button"
                     onClick={() => handleRemoveStep(idx)}
                     aria-label={`Hapus langkah ${idx + 1}`}
-                    className="pressable grid size-11 place-items-center rounded-full text-text-2 hover:bg-surface-3 hover:text-danger"
+                    className="pressable grid size-11 place-items-center text-text-2 hover:bg-surface-3 hover:text-danger"
                   >
                     <Trash2 className="size-4" aria-hidden="true" />
                   </button>
@@ -228,7 +228,7 @@ export function CustomRoutineBuilder({ isOpen, onClose, onCreated }: CustomRouti
         </div>
 
         {error && (
-          <p role="alert" className="rounded-sm bg-danger-soft px-3 py-2 text-footnote text-danger">
+          <p role="alert" className="bg-danger-soft px-3 py-2 text-footnote text-danger">
             {error}
           </p>
         )}
