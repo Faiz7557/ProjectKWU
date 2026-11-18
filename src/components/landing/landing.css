@@ -1,0 +1,72 @@
+/*
+ * Dasar bersama landing SMART-FIT (gaya 8B "Sill").
+ * Diadaptasi dari 8B Sill template (MIT), https://github.com/8bsite/pet-boarding-website-template
+ * Hanya dipakai di route "/" (diimpor oleh src/app/page.tsx). Gaya per section ada di landing-a/b/c.css.
+ */
+@layer components {
+  /* ---------- Tipografi ---------- */
+  .ld-hero   { font-family: var(--font-display); font-size: clamp(46px, 7.2vw, 116px); font-weight: 900; line-height: .9;  letter-spacing: -.035em; }
+  .ld-h2     { font-family: var(--font-display); font-size: clamp(38px, 5vw, 78px);    font-weight: 800; line-height: .94; letter-spacing: -.03em; }
+  .ld-h3     { font-family: var(--font-display); font-size: clamp(24px, 2.3vw, 34px);  font-weight: 800; line-height: 1.02; letter-spacing: -.02em; }
+  .ld-big    { font-family: var(--font-display); font-size: clamp(40px, 4.6vw, 72px);  font-weight: 500; line-height: .95; letter-spacing: -.025em; }
+  .ld-lead   { font-size: clamp(18px, 1.55vw, 22px); line-height: 1.4; letter-spacing: -.005em; }
+  .ld-body   { font-size: clamp(16px, 1.15vw, 18px); line-height: 1.5; }
+  .ld-label  { font-size: 13px; font-weight: 600; line-height: 1.35; letter-spacing: .06em; text-transform: uppercase; }
+  .ld-hand   { font-family: var(--font-hand); font-size: clamp(15px, 1.15vw, 17px); font-weight: 300; line-height: 1.9; }
+
+  /* ---------- Tata letak: panel di atas halaman, gutter = halaman yang terlihat ---------- */
+  .ld-section { padding: 0 var(--gutter) var(--gutter); scroll-margin-top: 72px; }
+  .ld-grid    { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gutter); }
+  .ld-panel   { position: relative; padding: clamp(20px, 2.4vw, 40px); min-width: 0; }
+  @media (max-width: 767.98px) {
+    .ld-grid > * { grid-column: 1 / -1 !important; }
+  }
+
+  /* ---------- Tombol ---------- */
+  .ld-btn {
+    position: relative; isolation: isolate; overflow: hidden;
+    display: inline-flex; align-items: center; justify-content: center; gap: .5em;
+    min-height: 52px; padding: 14px 26px; border: 0;
+    background: var(--ink); color: var(--paper);
+    font-weight: 600; font-size: 16px; text-decoration: none; cursor: pointer;
+  }
+  .ld-btn::before {
+    content: ""; position: absolute; z-index: -1; left: -12%; right: -12%; top: 0; height: 150%;
+    border-radius: 50% 50% 0 0 / 34% 34% 0 0; background: var(--panel-8);
+    transform: translateY(101%); transition: transform .5s cubic-bezier(.25, .8, .25, 1);
+  }
+  .ld-btn > * { transition: color .3s; }
+  .ld-btn--light { background: var(--paper); color: var(--ink); }
+  .ld-btn--light::before { background: var(--panel-1); }
+  @media (hover: hover) {
+    .ld-btn:hover::before { transform: translateY(-12%); }
+    .ld-btn:hover { color: var(--ink); }
+  }
+
+  .ld-link {
+    color: inherit; font-weight: 600; text-decoration: none;
+    background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat;
+    background-size: 100% 2px; background-position: 100% 100%; padding-bottom: 3px;
+  }
+  @keyframes ld-link-swipe {
+    0% { background-size: 100% 2px; background-position: 100% 100%; }
+    45% { background-size: 0% 2px; background-position: 100% 100%; }
+    46% { background-size: 0% 2px; background-position: 0% 100%; }
+    100% { background-size: 100% 2px; background-position: 0% 100%; }
+  }
+  @media (hover: hover) {
+    .ld-link:hover { animation: ld-link-swipe .7s cubic-bezier(.6, 0, .3, 1); }
+  }
+
+  /* ---------- Kurva tangan (efek curl) ---------- */
+  .ld-curl { fill: none; stroke: currentColor; stroke-width: 7; stroke-linecap: round; overflow: visible; }
+  .ld-curl path { stroke-dasharray: 1; stroke-dashoffset: 0; }
+
+  /* ---------- Bingkai peek: anak pertama naik di dalam bingkai ---------- */
+  .ld-frame { position: relative; overflow: hidden; }
+  .ld-frame > :first-child { width: 100%; height: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld-btn::before { transition: none; }
+}

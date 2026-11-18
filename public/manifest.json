@@ -4,8 +4,8 @@
   "description": "Hitung rep dan koreksi form secara real-time. Berjalan sepenuhnya di browser.",
   "start_url": "/workout",
   "display": "standalone",
-  "background_color": "#09090B",
-  "theme_color": "#09090B",
+  "background_color": "#f4f1ee",
+  "theme_color": "#f4f1ee",
   "orientation": "any",
   "lang": "id",
   "icons": [

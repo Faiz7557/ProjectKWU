@@ -4,12 +4,11 @@ import { useLayoutEffect, type RefObject } from 'react';
 import { gsap, ScrollTrigger, MOTION_OK } from './gsap';
 
 // Diadaptasi dari 8B Sill template (MIT)
-const NO_PREF = '(prefers-reduced-motion: no-preference)';
 
 /** Query selalu digabung dengan MOTION_OK, sehingga reduced motion tidak pernah menjalankan setup. */
 export function motionQueries(media?: Record<string, string>): Record<string, string> {
   if (!media) return { motion: MOTION_OK };
-  return Object.fromEntries(Object.entries(media).map(([k, q]) => [k, `${q} and ${NO_PREF}`]));
+  return Object.fromEntries(Object.entries(media).map(([k, q]) => [k, `${q} and ${MOTION_OK}`]));
 }
 
 export function useScene(

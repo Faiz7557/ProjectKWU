@@ -78,9 +78,9 @@ function ToastCard({ item }: { item: ToastItem }) {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        'pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-md bg-surface-2 px-4 py-3 text-callout text-text shadow-3 animate-enter',
-        item.tone === 'success' && 'border border-success/30',
-        item.tone === 'danger' && 'border border-danger/30',
+        'pointer-events-auto flex w-full max-w-sm items-center gap-3 bg-ink px-4 py-3 text-callout text-paper animate-enter',
+        item.tone === 'success' && 'border-l-4 border-panel-7',
+        item.tone === 'danger' && 'border-l-4 border-panel-1',
       )}
     >
       <p className="min-w-0 flex-1">{item.title}</p>
@@ -91,7 +91,7 @@ function ToastCard({ item }: { item: ToastItem }) {
             item.action?.onClick();
             dismissToast(item.id);
           }}
-          className="pressable min-h-11 rounded-sm px-3 font-semibold text-accent-text"
+          className="pressable min-h-11 px-3 font-semibold text-panel-8 underline decoration-2 underline-offset-[6px]"
         >
           {item.action.label}
         </button>
@@ -100,7 +100,7 @@ function ToastCard({ item }: { item: ToastItem }) {
         type="button"
         aria-label="Tutup notifikasi"
         onClick={() => dismissToast(item.id)}
-        className="pressable grid size-11 place-items-center rounded-full text-text-2 hover:text-text"
+        className="pressable grid size-11 place-items-center text-paper/70 hover:text-paper"
       >
         <X className="size-4" aria-hidden="true" />
       </button>

@@ -30,7 +30,7 @@ export function PrivacyBadge({ variant = 'compact', className = '' }: PrivacyBad
       <ul className="space-y-3">
         {POINTS.map((p) => (
           <li key={p.title} className="flex items-start gap-3">
-            <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-success-soft text-success">
+            <span className="mt-0.5 grid size-6 shrink-0 place-items-center bg-panel-7 text-on-panel-7">
               <Check className="size-4" aria-hidden="true" />
             </span>
             <span>
@@ -52,14 +52,14 @@ export function PrivacyBadge({ variant = 'compact', className = '' }: PrivacyBad
         <Button
           variant="tertiary"
           onClick={() => setOpen(true)}
-          className={cn('h-auto justify-start rounded-md bg-success-soft px-4 py-3 text-left text-success', className)}
+          className={cn('panel-7 bg-panel-7 h-auto justify-start px-4 py-3 text-left no-underline', className)}
           icon={<ShieldCheck className="size-5 shrink-0" aria-hidden="true" />}
         >
           <span className="flex flex-col items-start">
             <span className="text-subhead font-semibold">Privasi terlindungi</span>
-            <span className="text-footnote font-normal text-text-2">Video diproses di perangkat kamu</span>
+            <span className="text-footnote font-normal">Video diproses di perangkat kamu</span>
           </span>
-          <Info className="ml-auto size-4 shrink-0 text-text-3" aria-hidden="true" />
+          <Info className="ml-auto size-4 shrink-0" aria-hidden="true" />
         </Button>
         {dialog}
       </>
@@ -73,7 +73,7 @@ export function PrivacyBadge({ variant = 'compact', className = '' }: PrivacyBad
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'pressable inline-flex min-h-11 items-center gap-1.5 rounded-full bg-success-soft px-3 text-caption font-semibold text-success',
+          'panel-7 pressable inline-flex min-h-11 items-center gap-1.5 px-3 text-caption font-semibold',
           className,
         )}
       >

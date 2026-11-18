@@ -10,12 +10,24 @@ const ICONS: Record<string, LucideIcon> = {
   plank: Timer,
 };
 
+/** Warna panel tetap per gerakan (REDESIGN_PLAN §2.2). */
+export const EXERCISE_PANEL: Record<string, 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8> = {
+  pushup: 1,
+  squat: 3,
+  situp: 7,
+  jumping_jack: 8,
+  plank: 5,
+};
+
+const PANEL_CLASS = ['', 'panel-1', 'panel-2', 'panel-3', 'panel-4', 'panel-5', 'panel-6', 'panel-7', 'panel-8'];
+
 export function ExerciseIcon({ exercise, className }: { exercise: string; className?: string }) {
   const Icon = ICONS[exercise] ?? Dumbbell;
+  const panel = EXERCISE_PANEL[exercise];
   return (
     <span
       aria-hidden="true"
-      className={cn('grid size-10 shrink-0 place-items-center rounded-md bg-surface-3 text-text-2', className)}
+      className={cn('grid size-10 shrink-0 place-items-center', panel ? PANEL_CLASS[panel] : 'bg-surface-3 text-text-2', className)}
     >
       <Icon className="size-5" strokeWidth={1.75} />
     </span>

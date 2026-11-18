@@ -16,7 +16,7 @@ export function SmoothScroll({ children }: { children: ReactNode }) {
   useEffect(() => {
     const mm = gsap.matchMedia();
     mm.add(MOTION_OK, () => {
-      const l = new Lenis({ lerp: 0.09, wheelMultiplier: 0.95, anchors: true });
+      const l = new Lenis({ lerp: 0.09, wheelMultiplier: 0.95, anchors: { offset: -72 } });
       const tick = (t: number) => l.raf(t * 1000);
       l.on('scroll', ScrollTrigger.update);
       gsap.ticker.add(tick);

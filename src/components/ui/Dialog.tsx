@@ -53,8 +53,8 @@ export function Dialog({ open, onClose, title, description, children, className 
         if (e.target === ref.current) onCloseRef.current();
       }}
       className={cn(
-        'm-0 max-h-[85dvh] w-full max-w-md overflow-auto rounded-t-xl bg-surface-2 p-0 text-text shadow-3 backdrop:bg-scrim',
-        'inset-x-0 top-auto bottom-0 sm:inset-auto sm:m-auto sm:rounded-xl',
+        'm-0 max-h-[85dvh] w-full max-w-md overflow-auto bg-canvas p-0 text-text backdrop:bg-scrim',
+        'inset-x-0 top-auto bottom-0 sm:inset-auto sm:m-auto',
         'open:animate-enter',
         className,
       )}
@@ -62,7 +62,7 @@ export function Dialog({ open, onClose, title, description, children, className 
       <div className="p-5 sm:p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 id={titleId} className="text-title-2 text-text">
+            <h2 id={titleId} className="font-display text-title-2 text-text">
               {title}
             </h2>
             {description && (

@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ChevronLeft, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { ChevronLeft, CircleHelp, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { resolveTheme, setThemePref, useThemePref, type ThemePref } from '@/lib/theme/use-theme';
+import { tourKey } from '@/components/tour/tour-steps';
 import { IconButton } from './Button';
 import { SegmentedControl } from './Controls';
 
@@ -18,13 +20,14 @@ export function TopBar({
   back?: { href: string; label: string };
   actions?: ReactNode;
 }) {
+  const hasTour = tourKey(usePathname()) !== null;
   return (
-    <header className="material sticky top-0 z-10 border-b border-separator">
+    <header className="sticky top-0 z-10 bg-ink text-paper [&_button:hover]:bg-paper/15 [&_button]:text-paper">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4 sm:px-6">
         {back ? (
           <Link
             href={back.href}
-            className="pressable -ml-2 inline-flex min-h-11 items-center gap-1 rounded-sm px-2 text-subhead font-medium text-accent-text"
+            className="pressable -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-subhead font-medium text-paper decoration-2 underline-offset-[6px] hover:underline"
           >
             <ChevronLeft className="size-5" aria-hidden="true" />
             {back.label}
@@ -32,8 +35,18 @@ export function TopBar({
         ) : (
           <span className="w-2" aria-hidden="true" />
         )}
-        <h1 className="min-w-0 flex-1 truncate text-center text-headline text-text">{title}</h1>
-        <div className="flex min-w-11 items-center justify-end gap-1">{actions}</div>
+        <h1 className="min-w-0 flex-1 truncate text-center font-display text-headline text-paper">{title}</h1>
+        <div className="flex min-w-11 items-center justify-end gap-1">
+          {actions}
+          {hasTour && (
+            <IconButton
+              label="Putar panduan"
+              onClick={() => window.dispatchEvent(new Event('sf-tour'))}
+              icon={<CircleHelp className="size-5" aria-hidden="true" />}
+            />
+          )}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );
@@ -51,7 +64,7 @@ export function TabBar({ items }: { items: TabItem[] }) {
   return (
     <nav
       aria-label="Navigasi utama"
-      className="material fixed inset-x-0 bottom-0 z-10 border-t border-separator pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed inset-x-0 bottom-0 z-10 bg-ink pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="mx-auto grid max-w-md grid-cols-3">
         {items.map((item) => {
@@ -63,7 +76,7 @@ export function TabBar({ items }: { items: TabItem[] }) {
                 aria-current={item.active ? 'page' : undefined}
                 className={cn(
                   'pressable flex min-h-14 flex-col items-center justify-center gap-0.5 text-caption font-medium',
-                  item.active ? 'text-accent-text' : 'text-text-2',
+                  item.active ? 'text-panel-8' : 'text-paper/70',
                 )}
               >
                 <Icon className="size-6" aria-hidden="true" strokeWidth={item.active ? 2.25 : 1.75} />

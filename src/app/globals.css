@@ -153,3 +153,18 @@ html:has(dialog[open]) { overflow: hidden; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ---- T2.1: panel scope & base type ---- */
+@layer base {
+  h1, h2, h3 { font-family: var(--font-display); }
+}
+@layer components {
+  .panel-1 { background: var(--panel-1); color: var(--on-panel-1); --text: var(--on-panel-1); --text-2: var(--on-panel-1); --text-3: var(--on-panel-1); --accent-text: var(--on-panel-1); --separator: color-mix(in srgb, var(--on-panel-1) 20%, transparent); }
+  .panel-2 { background: var(--panel-2); color: var(--on-panel-2); --text: var(--on-panel-2); --text-2: var(--on-panel-2); --text-3: var(--on-panel-2); --accent-text: var(--on-panel-2); --separator: color-mix(in srgb, var(--on-panel-2) 20%, transparent); }
+  .panel-3 { background: var(--panel-3); color: var(--on-panel-3); --text: var(--on-panel-3); --text-2: var(--on-panel-3); --text-3: var(--on-panel-3); --accent-text: var(--on-panel-3); --separator: color-mix(in srgb, var(--on-panel-3) 20%, transparent); }
+  .panel-4 { background: var(--panel-4); color: var(--on-panel-4); --text: var(--on-panel-4); --text-2: var(--on-panel-4); --text-3: var(--on-panel-4); --accent-text: var(--on-panel-4); --separator: color-mix(in srgb, var(--on-panel-4) 20%, transparent); }
+  .panel-5 { background: var(--panel-5); color: var(--on-panel-5); --text: var(--on-panel-5); --text-2: var(--on-panel-5); --text-3: var(--on-panel-5); --accent-text: var(--on-panel-5); --separator: color-mix(in srgb, var(--on-panel-5) 20%, transparent); }
+  .panel-6 { background: var(--panel-6); color: var(--on-panel-6); --text: var(--on-panel-6); --text-2: var(--on-panel-6); --text-3: var(--on-panel-6); --accent-text: var(--on-panel-6); --separator: color-mix(in srgb, var(--on-panel-6) 20%, transparent); }
+  .panel-7 { background: var(--panel-7); color: var(--on-panel-7); --text: var(--on-panel-7); --text-2: var(--on-panel-7); --text-3: var(--on-panel-7); --accent-text: var(--on-panel-7); --separator: color-mix(in srgb, var(--on-panel-7) 20%, transparent); }
+  .panel-8 { background: var(--panel-8); color: var(--on-panel-8); --text: var(--on-panel-8); --text-2: var(--on-panel-8); --text-3: var(--on-panel-8); --accent-text: var(--on-panel-8); --separator: color-mix(in srgb, var(--on-panel-8) 20%, transparent); }
+}

@@ -19,7 +19,7 @@ export function Toggle({ pressed, onPressedChange, label, icon, className }: Tog
       aria-pressed={pressed}
       onClick={() => onPressedChange(!pressed)}
       className={cn(
-        'pressable inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-subhead font-medium',
+        'pressable inline-flex min-h-11 items-center gap-2 px-3 text-subhead font-medium',
         pressed ? 'bg-accent-soft text-accent-text' : 'bg-surface-3 text-text-2 hover:text-text',
         className,
       )}
@@ -70,7 +70,7 @@ export function Switch({ checked, onCheckedChange, label, description, disabled 
         <span
           aria-hidden="true"
           className={cn(
-            'block size-[27px] rounded-full bg-white shadow-1 transition-transform duration-[440ms] ease-spring',
+            'block size-[27px] rounded-full bg-canvas transition-transform duration-[440ms] ease-spring',
             checked ? 'translate-x-5' : 'translate-x-0',
           )}
         />
@@ -123,7 +123,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn('inline-flex w-full gap-1 rounded-md bg-surface-3 p-1', className)}
+      className={cn('inline-flex w-full gap-1 bg-surface-2 p-1', className)}
     >
       {options.map((opt, i) => {
         const active = opt.value === value;
@@ -140,8 +140,8 @@ export function SegmentedControl<T extends string>({
             onClick={() => onValueChange(opt.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              'pressable flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-sm px-3 text-subhead font-medium transition-colors duration-150',
-              active ? 'bg-surface-2 text-text shadow-1' : 'text-text-2 hover:text-text',
+              'pressable flex min-h-10 flex-1 items-center justify-center gap-1.5 px-3 text-subhead font-medium transition-colors duration-150',
+              active ? 'bg-text text-canvas' : 'text-text-2 hover:text-text',
             )}
           >
             {opt.icon}
