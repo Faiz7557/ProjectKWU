@@ -2,76 +2,43 @@ import { describe, it, expect } from 'vitest';
 import { analyzeBilateralSymmetry, AsymmetryAccumulator } from '../asymmetry';
 import type { NormalizedLandmark } from '@/trackers/types';
 
-function createMockLandmarks(): NormalizedLandmark[] {
-  const landmarks: NormalizedLandmark[] = [];
-  for (let i = 0; i < 33; i++) {
-    landmarks.push({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 });
-  }
-  return landmarks;
+function frontPose(leftElbowY: number, rightElbowY: number): NormalizedLandmark[] {
+  const lm: NormalizedLandmark[] = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, z: 0, visibility: 0.9 }));
+  lm[11] = { x: 0.4, y: 0.3, z: 0, visibility: 0.95 }; // bahu kiri
+  lm[12] = { x: 0.6, y: 0.3, z: 0, visibility: 0.95 }; // bahu kanan
+  lm[23] = { x: 0.42, y: 0.6, z: 0, visibility: 0.95 }; // pinggul kiri
+  lm[24] = { x: 0.58, y: 0.6, z: 0, visibility: 0.95 }; // pinggul kanan
+  lm[13] = { x: 0.25, y: leftElbowY, z: 0, visibility: 0.95 };
+  lm[14] = { x: 0.75, y: rightElbowY, z: 0, visibility: 0.95 };
+  return lm;
 }
 
 describe('Bilateral Asymmetry Analysis', () => {
-  it('returns balanced result when left and right knees have equal flexion in squats', () => {
-    const landmarks = createMockLandmarks();
-    // Squat: Hip (23,24), Knee (25,26), Ankle (27,28)
-    landmarks[23] = { x: 0.4, y: 0.4, z: 0, visibility: 0.95 };
-    landmarks[25] = { x: 0.4, y: 0.7, z: 0, visibility: 0.95 };
-    landmarks[27] = { x: 0.4, y: 0.9, z: 0, visibility: 0.95 };
-
-    landmarks[24] = { x: 0.6, y: 0.4, z: 0, visibility: 0.95 };
-    landmarks[26] = { x: 0.6, y: 0.7, z: 0, visibility: 0.95 };
-    landmarks[28] = { x: 0.6, y: 0.9, z: 0, visibility: 0.95 };
-
-    const result = analyzeBilateralSymmetry(landmarks, 'squat');
-    expect(result).not.toBeNull();
-    expect(result?.isImbalanced).toBe(false);
-    expect(result?.diffDegrees).toBeLessThanOrEqual(5);
-    expect(result?.balanceScore).toBeGreaterThanOrEqual(90);
+  it('seimbang saat kedua lengan terangkat setinggi', () => {
+    const r = analyzeBilateralSymmetry(frontPose(0.2, 0.2), 'jumping_jack');
+    expect(r).not.toBeNull();
+    expect(r?.isImbalanced).toBe(false);
+    expect(r?.balanceScore).toBeGreaterThanOrEqual(95);
   });
 
-  it('flags imbalance when left knee bends significantly more than right knee in squats', () => {
-    const landmarks = createMockLandmarks();
-    // Left knee deeply bent (around 90 deg)
-    landmarks[23] = { x: 0.4, y: 0.5, z: 0, visibility: 0.95 }; // hip
-    landmarks[25] = { x: 0.4, y: 0.7, z: 0, visibility: 0.95 }; // knee
-    landmarks[27] = { x: 0.2, y: 0.7, z: 0, visibility: 0.95 }; // ankle
-
-    // Right knee barely bent (straight leg ~180 deg)
-    landmarks[24] = { x: 0.6, y: 0.3, z: 0, visibility: 0.95 };
-    landmarks[26] = { x: 0.6, y: 0.6, z: 0, visibility: 0.95 };
-    landmarks[28] = { x: 0.6, y: 0.9, z: 0, visibility: 0.95 };
-
-    const result = analyzeBilateralSymmetry(landmarks, 'squat');
-    expect(result).not.toBeNull();
-    expect(result?.isImbalanced).toBe(true);
-    expect(result?.imbalancedSide).toBe('left');
-    expect(result?.diffDegrees).toBeGreaterThan(12);
+  it('menandai lengan kiri yang tertinggal', () => {
+    const r = analyzeBilateralSymmetry(frontPose(0.45, 0.1), 'jumping_jack');
+    expect(r?.isImbalanced).toBe(true);
+    expect(r?.imbalancedSide).toBe('left');
   });
 
-  it('correctly calculates average session symmetry using AsymmetryAccumulator', () => {
+  it('tidak menilai simetri untuk latihan tampak samping', () => {
+    for (const id of ['squat', 'pushup', 'plank', 'situp']) {
+      expect(analyzeBilateralSymmetry(frontPose(0.2, 0.2), id)).toBeNull();
+    }
+  });
+
+  it('AsymmetryAccumulator: null tanpa data, rata-rata setelah ada sampel', () => {
     const acc = new AsymmetryAccumulator();
-    expect(acc.getAverageScore()).toBe(96); // default baseline
-
-    acc.addSample({
-      leftAngle: 90,
-      rightAngle: 90,
-      diffDegrees: 0,
-      balanceScore: 100,
-      isImbalanced: false,
-      imbalancedSide: 'balanced',
-      jointName: 'Lutut',
-    });
-
-    acc.addSample({
-      leftAngle: 85,
-      rightAngle: 95,
-      diffDegrees: 10,
-      balanceScore: 80,
-      isImbalanced: false,
-      imbalancedSide: 'balanced',
-      jointName: 'Lutut',
-    });
-
+    expect(acc.getAverageScore()).toBeNull();
+    const base = { leftAngle: 90, rightAngle: 90, diffDegrees: 0, isImbalanced: false, imbalancedSide: 'balanced' as const, jointName: 'Lengan' };
+    acc.addSample({ ...base, balanceScore: 100 });
+    acc.addSample({ ...base, balanceScore: 80 });
     expect(acc.getAverageScore()).toBe(90);
   });
 });

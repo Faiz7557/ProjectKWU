@@ -6,7 +6,7 @@ import type {
   FormFault,
   FrameSize,
 } from './types';
-import { calculateAngle, toPixelSpace, bodyDeviation, DEFAULT_FRAME, SideSelector } from './base-tracker';
+import { calculateAngle, toPixelSpace, bodyDeviation, angleFromHorizontal, DEFAULT_FRAME, SideSelector } from './base-tracker';
 import { RepStateMachine, RepAccumulator } from './rep-state-machine';
 
 const L_SHOULDER = 11;
@@ -23,6 +23,7 @@ const R_ANKLE = 28;
 const ANGLE_DOWN = 95;  // Sudut siku posisi bawah (default; bisa dikalibrasi)
 const ANGLE_UP = 160;   // Sudut siku posisi atas lurus
 const HIP_DEVIATION_LIMIT = 0.07; // Deviasi pinggul bertanda, dinormalisasi panjang tubuh
+const TORSO_MAX_INCLINE = 45;     // Derajat bahu-pinggul dari horizontal; di atas ini bukan posisi push-up
 
 export interface PushupOptions {
   /** Ambang bawah hasil kalibrasi personal. */
@@ -76,6 +77,16 @@ export class PushupTracker implements ExerciseTracker {
     const W = useLeft ? L_WRIST : R_WRIST;
     const H = useLeft ? L_HIP : R_HIP;
     const A = useLeft ? L_ANKLE : R_ANKLE;
+
+    // Gating posisi: rep hanya dihitung saat torso mendatar. Tanpa ini menekuk siku sambil
+    // berdiri/duduk ikut terhitung sebagai push-up.
+    if (vis(H) >= minVis && angleFromHorizontal(p[S], p[H]) > TORSO_MAX_INCLINE) {
+      this.acc.markLost(timestamp);
+      return {
+        ...this.lostResult('Ambil posisi push-up: tubuh mendatar menghadap lantai', Math.max(leftVis, rightVis)),
+        isTracking: true,
+      };
+    }
 
     const elbowAngle = calculateAngle(p[S], p[E], p[W]);
     const angles: Record<string, number> = { [useLeft ? 'leftElbow' : 'rightElbow']: elbowAngle };
@@ -143,6 +154,7 @@ export class PushupTracker implements ExerciseTracker {
       activeFault,
       lastRep: event ?? undefined,
       formScore: this.acc.formScore(),
+      phase: this.acc.rsm.currentPhase,
     };
   }
 
@@ -175,6 +187,7 @@ export class PushupTracker implements ExerciseTracker {
       hasFault: false,
       activeFault: null,
       formScore: this.acc.formScore(),
+      phase: this.acc.rsm.currentPhase,
     };
   }
 }

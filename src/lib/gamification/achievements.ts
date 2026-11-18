@@ -28,7 +28,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'century_reps',
     name: 'Century Club',
-    description: 'Tembus akumulasi 100 total repetisi bersih',
+    description: 'Tembus akumulasi 100 total repetisi',
     tier: 'silver',
     icon: '💯',
     xpReward: 200,
@@ -36,7 +36,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'perfect_form',
     name: 'Form Sempurna',
-    description: 'Raih Form Score 100% tanpa kesalahan dalam satu sesi',
+    description: 'Raih Form Score 100% dalam satu sesi (minimal 10 rep atau tahan 30 detik)',
     tier: 'silver',
     icon: '✨',
     xpReward: 250,
@@ -149,7 +149,9 @@ export function evaluateAchievements(
         isEligible = stats.totalReps >= 500;
         break;
       case 'perfect_form':
-        isEligible = stats.formScore >= 100;
+        // Volume minimum: 1 rep bersih = 100% terlalu mudah untuk lencana "sempurna".
+        isEligible =
+          stats.formScore >= 100 && ((stats.reps ?? 0) >= 10 || (stats.holdDurationSec ?? 0) >= 30);
         break;
       case 'iron_core':
         isEligible = (stats.holdDurationSec ?? 0) >= 60;

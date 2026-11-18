@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Play } from 'lucide-react';
 import { getRoutineById, WorkoutRoutine, RoutineStep } from '@/lib/routines/presets';
 import { createTracker, ExerciseTracker } from '@/trackers';
+import type { FormFault } from '@/trackers/types';
 import { useCamera } from '@/hooks/useCamera';
 import { usePoseDetection } from '@/hooks/usePoseDetection';
 import { CameraFeed } from '@/components/camera/CameraFeed';
@@ -22,11 +23,50 @@ import { voiceCommander, VoiceCommandEvent } from '@/lib/audio/voice-commands';
 import { recordWorkoutSessionCompletion } from '@/lib/gamification/streak';
 import { AchievementToast } from '@/components/ui/AchievementToast';
 import type { Achievement } from '@/lib/gamification/types';
+import { estimateCalories, summarizeFaults, hasWork } from '@/lib/workout/session-metrics';
 
 interface RoutinePageProps {
   params: Promise<{
     routineId: string;
   }>;
+}
+
+/** Hasil satu langkah sirkuit, dicatat saat langkah selesai. */
+interface CircuitStepResult {
+  exerciseId: string;
+  reps: number;
+  cleanReps: number;
+  holdSec: number;
+  faults: FormFault[];
+  formScore: number | null;
+  symmetryScore: number | null;
+  kcal: number;
+}
+
+interface CircuitSummary {
+  reps: number;
+  cleanReps: number;
+  holdSec: number;
+  faults: FaultSummaryItem[];
+  formScore: number | null;
+  symmetryScore: number | null;
+  kcal: number;
+}
+
+const mean = (xs: number[]): number | null =>
+  xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+
+/** Gabungkan hasil seluruh langkah. Skor = rata-rata langkah yang punya data (bukan 100 - n×3). */
+function summarizeCircuit(steps: CircuitStepResult[]): CircuitSummary {
+  return {
+    reps: steps.reduce((a, s) => a + s.reps, 0),
+    cleanReps: steps.reduce((a, s) => a + s.cleanReps, 0),
+    holdSec: steps.reduce((a, s) => a + s.holdSec, 0),
+    faults: summarizeFaults(steps.flatMap((s) => s.faults)),
+    formScore: mean(steps.map((s) => s.formScore).filter((v): v is number => v !== null)),
+    symmetryScore: mean(steps.map((s) => s.symmetryScore).filter((v): v is number => v !== null)),
+    kcal: Math.round(steps.reduce((a, s) => a + s.kcal, 0)),
+  };
 }
 
 export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
@@ -54,21 +94,21 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
   const [showGhostSkeleton, setShowGhostSkeleton] = useState(false);
   const [isMetronomeEnabled, setIsMetronomeEnabled] = useState(false);
 
-  // Status Asimetri & Voice Command
-  const [averageSymmetryScore, setAverageSymmetryScore] = useState(96);
+  // Voice Command
   const [isVoiceCommandListening, setIsVoiceCommandListening] = useState(false);
   const [lastVoiceCommand, setLastVoiceCommand] = useState<string | null>(null);
 
   const prevPhaseRef = useRef<string>('idle');
   const handleTogglePauseRef = useRef<() => void>(() => {});
   const handleStepCompleteRef = useRef<() => void>(() => {});
+  const voiceCommandRef = useRef<(evt: VoiceCommandEvent) => void>(() => {});
 
-  // Kumulatif metrik seluruh sirkuit
-  const [totalReps, setTotalReps] = useState(0);
-  const [totalCleanReps, setTotalCleanReps] = useState(0);
-  const [circuitFaults, setCircuitFaults] = useState<FaultSummaryItem[]>([]);
-  const [circuitCalories, setCircuitCalories] = useState(0);
-  const [circuitFormScore, setCircuitFormScore] = useState(95);
+  // Hasil per langkah disimpan di ref (sinkron). Sebelumnya total disimpan di useState lalu dibaca
+  // pada render yang sama, sehingga rep & fault langkah TERAKHIR hilang dari ringkasan dan riwayat.
+  const stepResultsRef = useRef<CircuitStepResult[]>([]);
+  const stepStartElapsedRef = useRef(0);
+  const stepDoneRef = useRef(false);
+  const [circuitSummary, setCircuitSummary] = useState<CircuitSummary | null>(null);
 
   // Gamifikasi
   const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
@@ -125,10 +165,10 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
     },
   });
 
-  // Stopwatch total durasi circuit
+  // Stopwatch waktu aktif sirkuit (hanya saat inferensi berjalan; istirahat & jeda tidak dihitung)
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    if ((phase === 'exercise' || phase === 'rest') && isRunning) {
+    if (phase === 'exercise' && isRunning) {
       interval = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
       }, 1000);
@@ -183,6 +223,18 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
     }
   }, [tempoState?.currentPhase, isMetronomeEnabled, isRunning, phase]);
 
+  // Auto-lanjut: langkah selesai otomatis saat target rep / durasi tahan tercapai,
+  // agar sirkuit benar-benar hands-free (sebelumnya harus menekan Selesai tiap gerakan).
+  useEffect(() => {
+    if (phase !== 'exercise' || !isRunning || !currentStep || !trackingResult) return;
+    const reached = currentStep.targetReps
+      ? trackingResult.repCount >= currentStep.targetReps
+      : currentStep.targetDurationSec
+        ? (trackingResult.holdDuration ?? 0) >= currentStep.targetDurationSec
+        : false;
+    if (reached) handleStepCompleteRef.current();
+  }, [trackingResult, phase, isRunning, currentStep]);
+
   // Handler: Mulai dari Overview -> Masuk ke Env Check
   const handleStartRoutine = async () => {
     await startCamera('user');
@@ -199,6 +251,8 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
   // Handler: Countdown selesai -> Mulai Exercise
   const handleCountdownComplete = () => {
     resetInference();
+    stepStartElapsedRef.current = elapsedSeconds;
+    stepDoneRef.current = false;
     setPhase('exercise');
     startInference();
   };
@@ -216,28 +270,30 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
     }
   };
 
-  // Handler: Toggle Perintah Suara Dua Arah (Voice Commands)
+  // Handler: Toggle Perintah Suara. Callback lewat ref agar selalu membaca state terbaru.
   const handleToggleVoiceCommand = () => {
-    const next = voiceCommander.toggleListening((evt: VoiceCommandEvent) => {
-      setLastVoiceCommand(evt.phrase);
-      triggerHapticSuccess();
-      setTimeout(() => setLastVoiceCommand(null), 3500);
-
-      if (evt.action === 'pause') {
-        if (isRunning) handleTogglePause();
-      } else if (evt.action === 'resume') {
-        if (!isRunning) handleTogglePause();
-      } else if (evt.action === 'finish') {
-        handleStepComplete();
-      } else if (evt.action === 'start') {
-        if (phase === 'overview') {
-          handleStartRoutine();
-        } else if (phase === 'env-check') {
-          handleEnvCheckPassed();
-        }
-      }
-    });
+    const next = voiceCommander.toggleListening((evt: VoiceCommandEvent) => voiceCommandRef.current(evt));
     setIsVoiceCommandListening(next);
+  };
+
+  const handleVoiceCommand = (evt: VoiceCommandEvent) => {
+    setLastVoiceCommand(evt.phrase);
+    triggerHapticSuccess();
+    setTimeout(() => setLastVoiceCommand(null), 3500);
+
+    if (evt.action === 'pause') {
+      if (isRunning) handleTogglePause();
+    } else if (evt.action === 'resume') {
+      if (!isRunning) handleTogglePause();
+    } else if (evt.action === 'finish') {
+      if (phase === 'exercise') handleStepComplete();
+    } else if (evt.action === 'start') {
+      if (phase === 'overview') {
+        handleStartRoutine();
+      } else if (phase === 'env-check') {
+        handleEnvCheckPassed();
+      }
+    }
   };
 
   useEffect(() => {
@@ -248,28 +304,24 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
 
   // Handler: Langkah selesai (Next Step atau Rest)
   const handleStepComplete = () => {
-    if (!routine || !currentStep) return;
+    if (!routine || !currentStep || stepDoneRef.current) return; // cegah dobel (auto-lanjut + tombol/gestur)
+    stepDoneRef.current = true;
     pauseInference();
     triggerHapticMilestone();
 
-    // Kumpulkan metrik dari tracker langkah ini
     if (currentTracker) {
-      const stepReps = currentTracker.config.type === 'counter' ? trackingResult?.repCount ?? 0 : 0;
-      const clean = currentTracker.getCleanRepCount();
-      setTotalReps((prev) => prev + stepReps);
-      setTotalCleanReps((prev) => prev + clean);
-
-      const stepFaults = currentTracker.getFaults();
-      for (const f of stepFaults) {
-        setCircuitFaults((prev) => {
-          const idx = prev.findIndex((item) => item.name === f.name);
-          if (idx >= 0) {
-            prev[idx].count++;
-            return [...prev];
-          }
-          return [...prev, { name: f.name, count: 1, description: f.description }];
-        });
-      }
+      const isCounter = currentTracker.config.type === 'counter';
+      stepResultsRef.current.push({
+        exerciseId: currentTracker.config.id,
+        reps: isCounter ? trackingResult?.repCount ?? 0 : 0,
+        cleanReps: isCounter ? currentTracker.getCleanRepCount() : 0,
+        holdSec: !isCounter ? trackingResult?.holdDuration ?? 0 : 0,
+        faults: [...currentTracker.getFaults()],
+        formScore: trackingResult?.formScore ?? null,
+        // Simetri per langkah: akumulator di-reset tiap countdown, jadi harus diambil sekarang.
+        symmetryScore: getAverageSymmetryScore(),
+        kcal: estimateCalories(currentTracker.config.id, elapsedSeconds - stepStartElapsedRef.current),
+      });
     }
 
     const isLastStep = stepIndex >= routine.steps.length - 1;
@@ -278,11 +330,9 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
     if (!isLastStep && hasRest) {
       setPhase('rest');
     } else if (!isLastStep) {
-      // Langsung gerakan berikutnya tanpa istirahat
       setStepIndex((prev) => prev + 1);
       setPhase('countdown');
     } else {
-      // Seluruh sirkuit tuntas!
       handleFinishCircuit();
     }
   };
@@ -299,29 +349,23 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
     stopCamera();
     pauseInference();
 
-    const cal = Math.max(15, Math.round(elapsedSeconds * 0.16 + totalReps * 0.4));
-    setCircuitCalories(cal);
-
-    const score = Math.max(65, Math.round(100 - circuitFaults.length * 3));
-    setCircuitFormScore(score);
-
-    const symScore = getAverageSymmetryScore();
-    setAverageSymmetryScore(symScore);
-
+    const steps = stepResultsRef.current;
+    const summary = summarizeCircuit(steps);
+    setCircuitSummary(summary);
     setPhase('summary');
 
     const sessionPayload = {
       id: `circuit-${Date.now()}`,
       exercise: routine.id,
       exerciseName: routine.name,
-      reps: totalReps,
-      cleanReps: totalCleanReps,
-      holdDurationSec: null,
+      reps: summary.reps,
+      cleanReps: summary.cleanReps,
+      holdDurationSec: summary.holdSec > 0 ? summary.holdSec : null,
       sessionDurationSec: elapsedSeconds,
-      caloriesBurned: cal,
-      formScore: score,
-      symmetryScore: symScore,
-      faultsSummary: circuitFaults,
+      caloriesBurned: summary.kcal,
+      formScore: summary.formScore ?? undefined,
+      symmetryScore: summary.symmetryScore ?? undefined,
+      faultsSummary: summary.faults,
       startedAt: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
     };
 
@@ -334,13 +378,16 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
       // Storage safe
     }
 
+    if (!hasWork(summary.reps, summary.holdSec)) return;
     try {
       const gamification = recordWorkoutSessionCompletion({
         exercise: routine.id,
-        reps: totalReps,
-        holdDurationSec: null,
+        exerciseIds: [...new Set(steps.map((s) => s.exerciseId))],
+        reps: summary.reps,
+        // Lencana plank dinilai dari satu tahanan terpanjang, bukan jumlah beberapa plank.
+        holdDurationSec: Math.max(0, ...steps.map((s) => s.holdSec)) || null,
         sessionDurationSec: elapsedSeconds,
-        formScore: score,
+        formScore: summary.formScore,
       });
 
       if (gamification.newlyUnlocked.length > 0) {
@@ -356,10 +403,11 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
     }
   };
 
-  // Sinkronisasi callback ref untuk gestur hands-free
+  // Sinkronisasi callback ref untuk gestur & suara hands-free
   useEffect(() => {
     handleTogglePauseRef.current = handleTogglePause;
     handleStepCompleteRef.current = handleStepComplete;
+    voiceCommandRef.current = handleVoiceCommand;
   });
 
   if (!routine) {
@@ -531,10 +579,15 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
               onToggleVoiceCommand={handleToggleVoiceCommand}
               lastVoiceCommand={lastVoiceCommand}
               gestureResult={gestureResult}
-              onToggleVoice={() => setIsVoiceEnabled(!isVoiceEnabled)}
+              onToggleVoice={() => {
+                const next = !isVoiceEnabled;
+                setIsVoiceEnabled(next);
+                voiceCoach.setEnabled(next);
+              }}
               onTogglePause={handleTogglePause}
               onReset={() => {
                 resetInference();
+                stepStartElapsedRef.current = elapsedSeconds;
                 startInference();
               }}
               onFinish={handleStepComplete}
@@ -553,7 +606,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
         )}
 
         {/* PHASE 6: SUMMARY */}
-        {phase === 'summary' && (
+        {phase === 'summary' && circuitSummary && (
           <>
             <SessionSummary
               config={{
@@ -565,21 +618,19 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
                 requiredLandmarks: [],
                 minVisibility: 0.5,
               }}
-              reps={totalReps}
-              cleanReps={totalCleanReps}
-              holdDurationSec={0}
+              reps={circuitSummary.reps}
+              cleanReps={circuitSummary.cleanReps}
+              holdDurationSec={circuitSummary.holdSec}
               sessionDurationSec={elapsedSeconds}
-              formScore={circuitFormScore}
-              symmetryScore={averageSymmetryScore}
-              tempoRatio={tempoState?.lastRepTempo?.tempoFormat}
-              avgTutSec={tempoState?.lastRepTempo?.totalTUTSec}
-              caloriesBurned={circuitCalories}
-              faultsSummary={circuitFaults}
+              formScore={circuitSummary.formScore ?? undefined}
+              symmetryScore={circuitSummary.symmetryScore ?? undefined}
+              caloriesBurned={circuitSummary.kcal}
+              faultsSummary={circuitSummary.faults}
+              celebrate={unlockedAchievements.length > 0 || leveledUp}
               onRestart={() => {
+                stepResultsRef.current = [];
+                setCircuitSummary(null);
                 setStepIndex(0);
-                setTotalReps(0);
-                setTotalCleanReps(0);
-                setCircuitFaults([]);
                 setElapsedSeconds(0);
                 setPhase('overview');
               }}

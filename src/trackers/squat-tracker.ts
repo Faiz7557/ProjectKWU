@@ -92,7 +92,8 @@ export class SquatTracker implements ExerciseTracker {
     const observed: FormFault[] = [];
 
     // Lean berlebih: sudut antara torso (pinggul->bahu) dan tibia (ankle->lutut), keduanya menunjuk ke atas.
-    if (vis(S) >= minVis || vis(Hp) >= minVis) {
+    // Pinggul sudah tervalidasi; bahu wajib terlihat agar vektor torso bukan tebakan.
+    if (vis(S) >= minVis) {
       const lean = angleBetweenVectors(
         { x: p[S].x - p[Hp].x, y: p[S].y - p[Hp].y },
         { x: p[K].x - p[A].x, y: p[K].y - p[A].y }
@@ -162,6 +163,7 @@ export class SquatTracker implements ExerciseTracker {
       activeFault,
       lastRep: event ?? undefined,
       formScore: this.acc.formScore(),
+      phase: this.acc.rsm.currentPhase,
     };
   }
 
@@ -194,6 +196,7 @@ export class SquatTracker implements ExerciseTracker {
       hasFault: false,
       activeFault: null,
       formScore: this.acc.formScore(),
+      phase: this.acc.rsm.currentPhase,
     };
   }
 }

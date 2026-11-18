@@ -135,19 +135,22 @@ export function usePoseDetection(
 
             // 2. Jalankan logika hitung repetisi gerakan
             if (tracker) {
-              const res = tracker.processLandmarks(smoothed, now);
+              // Ukuran frame asli: tanpa ini sudut dihitung dengan asumsi 640x480 dan terdistorsi
+              // pada kamera 16:9 atau potret ponsel.
+              const frame = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
+              const res = tracker.processLandmarks(smoothed, now, frame);
               if (isMountedRef.current) {
                 setTrackingResult(res);
               }
 
               // 3. Jalankan Tempo & TUT Tracker
-              const tState = tempoTrackerRef.current.update(res.state, res.repCount, now);
+              const tState = tempoTrackerRef.current.update(res, exerciseId);
               if (isMountedRef.current) {
                 setTempoState(tState);
               }
 
               // 3b. Jalankan Analisis Asimetri Bilateral (Kiri vs Kanan)
-              const sym = analyzeBilateralSymmetry(smoothed, exerciseId);
+              const sym = analyzeBilateralSymmetry(smoothed, exerciseId, frame);
               if (isMountedRef.current) {
                 setSymmetryState(sym);
               }
@@ -222,7 +225,15 @@ export function usePoseDetection(
               }
             }
           } else {
-            // Landmark tidak terdeteksi
+            // Landmark tidak terdeteksi: tetap beri tahu tracker agar rep yang berjalan dibatalkan
+            // dan waktu tahan plank berhenti (sebelumnya hasil terakhir "membeku" sebagai tracking aktif).
+            if (tracker) {
+              const res = tracker.processLandmarks([], now);
+              if (isMountedRef.current) {
+                setTrackingResult(res);
+                setSymmetryState(null);
+              }
+            }
             if (canvas) {
               const ctx = canvas.getContext('2d');
               ctx?.clearRect(0, 0, canvas.width, canvas.height);
@@ -325,7 +336,7 @@ export function usePoseDetection(
     };
   }, []);
 
-  const getAverageSymmetryScore = useCallback(() => {
+  const getAverageSymmetryScore = useCallback((): number | null => {
     return asymmetryAccumulatorRef.current.getAverageScore();
   }, []);
 

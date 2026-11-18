@@ -79,6 +79,7 @@ export class JumpingJackTracker implements ExerciseTracker {
         hasFault: false,
         activeFault: null,
         formScore: this.acc.formScore(),
+        phase: this.acc.rsm.currentPhase,
       };
     }
     this.acc.markVisible();
@@ -156,6 +157,7 @@ export class JumpingJackTracker implements ExerciseTracker {
       activeFault,
       lastRep: event ?? undefined,
       formScore: this.acc.formScore(),
+      phase: this.acc.rsm.currentPhase,
     };
   }
 

@@ -57,6 +57,20 @@ describe('RepStateMachine', () => {
     expect(events[0].kind).toBe('partial');
   });
 
+  it('tracks the true extremum on a slow half rep (regression: partial was missed)', () => {
+    const sm = new RepStateMachine(cfg);
+    const samples = [
+      ...Array(5).fill(170),
+      ...ramp(170, 125, 40), // turun pelan 2 dtk, berhenti di 125° (tidak sampai 95°)
+      ...ramp(125, 170, 40),
+      ...Array(5).fill(170),
+    ];
+    const events = run(sm, samples, 50);
+    expect(events).toHaveLength(1);
+    expect(events[0].kind).toBe('partial');
+    expect(events[0].extremum).toBeCloseTo(125, 0);
+  });
+
   it('ignores a one-sample dip below bottom (debounce)', () => {
     const sm = new RepStateMachine(cfg);
     const samples = [...Array(5).fill(170), 80, ...Array(5).fill(170)];

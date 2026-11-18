@@ -53,8 +53,10 @@ export function getExerciseProgression(exerciseId: string): ProgressionResult {
       };
     }
 
+    const isTimer = exerciseId === 'plank';
+    // Sesi kosong (0 rep / 0 detik, mis. kamera gagal) tidak boleh menurunkan target.
     const exerciseSessions = allSessions
-      .filter((s) => s.exercise === exerciseId)
+      .filter((s) => s.exercise === exerciseId && ((isTimer ? s.holdDurationSec : s.reps) ?? 0) > 0)
       .slice(0, 5); // 5 sesi terbaru
 
     if (exerciseSessions.length === 0) {
@@ -68,12 +70,14 @@ export function getExerciseProgression(exerciseId: string): ProgressionResult {
       };
     }
 
-    const isTimer = exerciseId === 'plank';
-    const values = exerciseSessions.map((s) => (isTimer ? s.holdDurationSec ?? 30 : s.reps ?? 10));
-    const scores = exerciseSessions.map((s) => s.formScore ?? 85);
+    const values = exerciseSessions.map((s) => (isTimer ? s.holdDurationSec : s.reps) ?? 0);
+    const scores = exerciseSessions
+      .map((s) => s.formScore)
+      .filter((v): v is number => typeof v === 'number');
 
     const avgVal = values.reduce((a, b) => a + b, 0) / values.length;
-    const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    // Tanpa skor form tersimpan: anggap netral (tidak memicu naik/turun target).
+    const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 80;
     const latestVal = values[0];
 
     // Cek tren

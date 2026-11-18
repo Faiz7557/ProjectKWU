@@ -100,6 +100,9 @@ export interface TrackingResult {
 
   /** Skor form 0-100 = rep bersih / rep total (null jika belum ada rep). Tanpa lantai buatan. */
   formScore?: number | null;
+
+  /** Fase gerakan kontinu dari RepStateMachine (hanya latihan counter). Dipakai tempo & metronom. */
+  phase?: 'top' | 'descending' | 'bottom' | 'ascending';
 }
 
 export type ExerciseType = 'counter' | 'timer';

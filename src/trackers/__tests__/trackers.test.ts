@@ -127,6 +127,31 @@ describe('PushupTracker', () => {
     expect(tracker.getFaults().some((f) => f.id === 'sagging_hips')).toBe(true);
   });
 
+  it('does not count elbow bends while standing upright (regression)', () => {
+    const stand = (elbowBent: boolean) => {
+      const pose = createBlankPose();
+      setPoint(pose, 11, 0.5, 0.3); setPoint(pose, 23, 0.5, 0.6); setPoint(pose, 27, 0.5, 0.95);
+      setPoint(pose, 13, 0.5, 0.45);
+      if (elbowBent) setPoint(pose, 15, 0.6, 0.35); else setPoint(pose, 15, 0.5, 0.6);
+      pose[12] = { ...pose[11] }; pose[14] = { ...pose[13] }; pose[16] = { ...pose[15] };
+      pose[24] = { ...pose[23] }; pose[28] = { ...pose[27] };
+      return pose;
+    };
+    let t = hold(tracker, stand(false), 0, 200).t;
+    t = sweep(tracker, stand(false), stand(true), t, 800).t;
+    t = sweep(tracker, stand(true), stand(false), t, 800).t;
+    const res = hold(tracker, stand(false), t, 200).res;
+    expect(res.repCount).toBe(0);
+    expect(res.isTracking).toBe(true);
+  });
+
+  it('exposes the continuous rep phase for tempo/metronome', () => {
+    let t = hold(tracker, pushupTop(), 0, 200).t;
+    expect(hold(tracker, pushupTop(), t, 50).res.phase).toBe('top');
+    t = sweep(tracker, pushupTop(), pushupBottom(), t, 800).t;
+    expect(hold(tracker, pushupBottom(), t, 200).res.phase).toBe('bottom');
+  });
+
   it('rejects tracking when landmarks are occluded / low visibility', () => {
     const pose = createBlankPose();
     pose[11].visibility = 0.1;
@@ -266,13 +291,30 @@ function plankPose(hipY: number): NormalizedLandmark[] {
 describe('PlankTracker', () => {
   it('accumulates hold time when in straight body alignment', () => {
     const tracker = new PlankTracker();
-    let res = tracker.processLandmarks(plankPose(0.5), 1000);
-    expect(res.state).toBe('holding');
+    expect(tracker.processLandmarks(plankPose(0.5), 1000).state).toBe('holding');
 
-    res = tracker.processLandmarks(plankPose(0.5), 2000);
+    const res = hold(tracker, plankPose(0.5), 1000, 1000).res;
     expect(res.state).toBe('holding');
     expect(res.holdDuration).toBeGreaterThan(0.9);
     expect(res.formScore).toBe(100);
+  });
+
+  it('does not count a gap between frames longer than 0.5 s (lag / pause)', () => {
+    const tracker = new PlankTracker();
+    tracker.processLandmarks(plankPose(0.5), 0);
+    expect(tracker.processLandmarks(plankPose(0.5), 3000).holdDuration).toBeLessThanOrEqual(0.5);
+  });
+
+  it('does not count standing upright as a plank (regression)', () => {
+    const tracker = new PlankTracker();
+    const standing = createBlankPose();
+    setPoint(standing, 11, 0.5, 0.2); setPoint(standing, 12, 0.5, 0.2);
+    setPoint(standing, 23, 0.5, 0.5); setPoint(standing, 24, 0.5, 0.5);
+    setPoint(standing, 27, 0.5, 0.9); setPoint(standing, 28, 0.5, 0.9);
+    const res = hold(tracker, standing, 0, 2000).res;
+    expect(res.holdDuration).toBe(0);
+    expect(res.isTracking).toBe(true);
+    expect(res.state).toBe('pause');
   });
 
   it('distinguishes sagging from piking hips', () => {

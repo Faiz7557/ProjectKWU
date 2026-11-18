@@ -35,15 +35,24 @@ export interface SessionCompletionResult {
   newLevel: number;
 }
 
+/** YYYY-MM-DD menurut zona waktu lokal perangkat (toISOString = UTC, salah hari untuk WIB sebelum 07:00). */
+export function localDateKey(d: Date = new Date()): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 export function recordWorkoutSessionCompletion(session: {
   exercise: string;
+  /** Untuk sirkuit: gerakan nyata yang dilatih (id rutinitas bukan gerakan, tidak dihitung ke "Atlet Lengkap"). */
+  exerciseIds?: string[];
   reps: number | null;
   holdDurationSec: number | null;
   sessionDurationSec: number;
-  formScore: number;
+  formScore: number | null;
 }): SessionCompletionResult {
   const currentState = getGamificationState();
-  const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+  const today = localDateKey();
 
   // 1. Hitung Streak Harian
   let newCurrentStreak = currentState.streak.current;
@@ -57,7 +66,7 @@ export function recordWorkoutSessionCompletion(session: {
   } else {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = localDateKey(yesterday);
 
     if (lastDate === yesterdayStr) {
       // Latihan kemarin dan hari ini: streak bertambah
@@ -75,9 +84,10 @@ export function recordWorkoutSessionCompletion(session: {
   const hold = session.holdDurationSec ?? 0;
   const baseScore = reps * 2 + Math.round(hold * 0.8);
   
+  const formScore = session.formScore ?? 0;
   let formBonus = 0;
-  if (session.formScore >= 95) formBonus = 40;
-  else if (session.formScore >= 85) formBonus = 20;
+  if (formScore >= 95) formBonus = 40;
+  else if (formScore >= 85) formBonus = 20;
 
   let multiplier = 1;
   if (newCurrentStreak >= 7) multiplier = 1.5;
@@ -88,7 +98,7 @@ export function recordWorkoutSessionCompletion(session: {
   // 3. Statistik kumulatif: counter terpisah, tidak bergantung pada history
   // (history sudah berisi sesi ini saat fungsi dipanggil, dan dibatasi 50 item).
   const prevStats = currentState.stats;
-  const exercises = new Set<string>([...prevStats.exercises, session.exercise]);
+  const exercises = new Set<string>([...prevStats.exercises, ...(session.exerciseIds ?? [session.exercise])]);
   const totalSessions = prevStats.totalSessions + 1;
   const totalReps = prevStats.totalReps + reps;
 
@@ -97,7 +107,7 @@ export function recordWorkoutSessionCompletion(session: {
     reps: session.reps,
     holdDurationSec: session.holdDurationSec,
     sessionDurationSec: session.sessionDurationSec,
-    formScore: session.formScore,
+    formScore,
     totalSessions,
     totalReps,
     currentStreak: newCurrentStreak,

@@ -64,7 +64,8 @@ export function SessionSummary({
   onRestart,
 }: SessionSummaryProps) {
   const isTimer = config.type === 'timer';
-  const kcal = caloriesBurned > 0 ? caloriesBurned : Math.max(1, Math.round(sessionDurationSec * 0.14));
+  // Kalori sudah dihitung pemanggil dengan MET per gerakan; tidak ada rumus cadangan flat di sini.
+  const kcal = caloriesBurned;
   const pace = sessionDurationSec > 0 && !isTimer ? ((reps / sessionDurationSec) * 60).toFixed(1) : null;
   const coachTip = COACH_TIPS[config.id] || 'Lakukan pemanasan dan pendinginan setiap kali berlatih.';
   const cleanPct = cleanReps !== undefined && reps > 0 ? (cleanReps / reps) * 100 : null;

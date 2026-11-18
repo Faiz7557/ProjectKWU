@@ -6,7 +6,7 @@ import type {
   FormFault,
   FrameSize,
 } from './types';
-import { calculateAngle, toPixelSpace, bodyDeviation, DEFAULT_FRAME, SideSelector } from './base-tracker';
+import { calculateAngle, toPixelSpace, bodyDeviation, angleFromHorizontal, DEFAULT_FRAME, SideSelector } from './base-tracker';
 
 const L_SHOULDER = 11;
 const R_SHOULDER = 12;
@@ -18,7 +18,10 @@ const R_ANKLE = 28;
 // Deviasi pinggul bertanda dari garis bahu-kaki, dinormalisasi panjang tubuh.
 // Positif = melorot (sag), negatif = terangkat (pike). Di dalam batas = postur lurus.
 const HIP_DEVIATION_LIMIT = 0.07;
-const MAX_FRAME_DELTA_SEC = 2.0;
+// Jeda antar-frame lebih dari ini (lag, pause, tubuh hilang) tidak ikut dihitung sebagai waktu tahan.
+const MAX_FRAME_DELTA_SEC = 0.5;
+// Garis bahu-kaki lebih miring dari ini (derajat dari horizontal) = bukan posisi plank.
+const BODY_MAX_INCLINE = 35;
 
 export class PlankTracker implements ExerciseTracker {
   readonly config: ExerciseConfig = {
@@ -75,6 +78,26 @@ export class PlankTracker implements ExerciseTracker {
     const S = useLeft ? L_SHOULDER : R_SHOULDER;
     const H = useLeft ? L_HIP : R_HIP;
     const A = useLeft ? L_ANKLE : R_ANKLE;
+
+    // Gating posisi: berdiri tegak juga membentuk garis bahu-pinggul-kaki lurus (deviasi ≈ 0),
+    // jadi tanpa cek ini berdiri dihitung sebagai plank sempurna.
+    if (angleFromHorizontal(p[S], p[A]) > BODY_MAX_INCLINE) {
+      this.lastValidTimestamp = null;
+      this.lastFaultId = null;
+      return {
+        state: 'pause',
+        repCount: 0,
+        cleanRepCount: 0,
+        holdDuration: Number(this.holdDurationSec.toFixed(1)),
+        feedback: 'Ambil posisi plank: tubuh lurus mendatar bertumpu lengan bawah',
+        angles: {},
+        confidence: Math.max(leftVis, rightVis),
+        isTracking: true,
+        hasFault: false,
+        activeFault: null,
+        formScore: this.formScore(),
+      };
+    }
 
     const dev = bodyDeviation(p[S], p[H], p[A]);
     const angles: Record<string, number> = {
@@ -142,8 +165,9 @@ export class PlankTracker implements ExerciseTracker {
     return this.faults;
   }
 
+  /** Plank tidak punya repetisi. Waktu tahan bersih ada di holdDuration (sebelumnya detik bocor jadi "rep bersih"). */
   getCleanRepCount(): number {
-    return Math.round(this.cleanHoldDurationSec);
+    return 0;
   }
 
   reset(): void {

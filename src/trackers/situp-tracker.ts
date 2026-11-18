@@ -125,6 +125,7 @@ export class SitupTracker implements ExerciseTracker {
       activeFault,
       lastRep: event ?? undefined,
       formScore: this.acc.formScore(),
+      phase: this.acc.rsm.currentPhase,
     };
   }
 
@@ -158,6 +159,7 @@ export class SitupTracker implements ExerciseTracker {
       hasFault: false,
       activeFault: null,
       formScore: this.acc.formScore(),
+      phase: this.acc.rsm.currentPhase,
     };
   }
 }

@@ -1,166 +1,115 @@
-import type { RepEvent } from '../../trackers/types';
+import type { RepEvent, TrackingResult } from '../../trackers/types';
 
 export interface RepTempoResult {
   eccentricSec: number;
   bottomPauseSec: number;
   concentricSec: number;
   totalTUTSec: number;
-  tempoFormat: string; // Misal: "3-1-1"
+  tempoFormat: string; // Misal: "3-1-1" (turun-tahan-naik)
   isRushed: boolean;
 }
 
-/** Batas bawah fase turun (detik) di bawah ini rep dianggap terburu-buru. */
+/** Batas bawah fase eksentrik (detik) di bawah ini rep dianggap terburu-buru. */
 export const RUSHED_ECCENTRIC_SEC = 1.1;
 
 /**
- * Tempo satu rep dari RepEvent (sinyal sudut kontinu). Menggantikan TempoTracker berbasis state biner
- * yang selalu menghasilkan fase turun ~0 detik (A8).
+ * Pemetaan fase RepStateMachine ke fase otot:
+ * - pushup/squat: sinyal turun = eksentrik (default).
+ * - situp: sinyal dibalik, "descending" = torso naik (konsentrik), jadi fase ditukar.
+ * - jumping jack: gerakan balistik, tempo eksentrik tidak relevan -> tidak pernah "terburu-buru".
  */
-export function tempoFromRepEvent(event: RepEvent): RepTempoResult | null {
+const INVERTED_EXERCISES = new Set(['situp']);
+const BALLISTIC_EXERCISES = new Set(['jumping_jack']);
+
+function fmt(ecc: number, bot: number, con: number): string {
+  return `${Math.max(1, Math.round(ecc))}-${Math.round(bot)}-${Math.max(1, Math.round(con))}`;
+}
+
+/** Tempo satu rep dari RepEvent (sinyal sudut kontinu). Null untuk partial rep. */
+export function tempoFromRepEvent(event: RepEvent, exerciseId?: string): RepTempoResult | null {
   if (event.kind !== 'rep') return null;
-  const ecc = event.eccMs / 1000;
+  const inverted = exerciseId !== undefined && INVERTED_EXERCISES.has(exerciseId);
+  const ecc = (inverted ? event.conMs : event.eccMs) / 1000;
+  const con = (inverted ? event.eccMs : event.conMs) / 1000;
   const bot = event.pauseMs / 1000;
-  const con = event.conMs / 1000;
   const total = event.totalMs / 1000;
+  const ballistic = exerciseId !== undefined && BALLISTIC_EXERCISES.has(exerciseId);
   return {
     eccentricSec: Number(ecc.toFixed(2)),
     bottomPauseSec: Number(bot.toFixed(2)),
     concentricSec: Number(con.toFixed(2)),
     totalTUTSec: Number(total.toFixed(2)),
-    tempoFormat: `${Math.max(1, Math.round(ecc))}-${Math.round(bot)}-${Math.max(1, Math.round(con))}`,
-    isRushed: ecc < RUSHED_ECCENTRIC_SEC,
+    tempoFormat: fmt(ecc, bot, con),
+    isRushed: !ballistic && ecc < RUSHED_ECCENTRIC_SEC,
   };
 }
 
 export interface TempoState {
   currentPhase: 'idle' | 'descending' | 'bottom' | 'ascending';
-  phaseDurationSec: number;
   lastRepTempo: RepTempoResult | null;
+  /** Rata-rata tempo seluruh rep sesi ini (null bila belum ada rep). */
+  averageTempo: RepTempoResult | null;
   totalTUTSec: number;
   averageTUTPerRep: number;
   rushedRepsCount: number;
-  feedback?: string;
+  repsTimed: number;
 }
 
+/**
+ * Akumulator tempo & Time Under Tension per sesi.
+ * Membaca fase kontinu (TrackingResult.phase) dan RepEvent yang selesai (TrackingResult.lastRep),
+ * bukan label state biner, sehingga durasi tiap fase nyata.
+ */
 export class TempoTracker {
-  private phase: 'idle' | 'descending' | 'bottom' | 'ascending' = 'idle';
-  private phaseStartTime: number = 0;
-
-  private descentDuration: number = 0;
-  private bottomDuration: number = 0;
-  private concentricDuration: number = 0;
-
-  private lastRepCount: number = 0;
   private lastRepTempo: RepTempoResult | null = null;
+  private sumEcc = 0;
+  private sumBot = 0;
+  private sumCon = 0;
+  private totalTUTSec = 0;
+  private reps = 0;
+  private rushed = 0;
 
-  private totalTUTSec: number = 0;
-  private completedRepsCount: number = 0;
-  private rushedRepsCount: number = 0;
-
-  /**
-   * Evaluasi perubahan state tracker gerakan (up/down/holding, dll)
-   * @param exerciseState State saat ini dari tracker (misal 'up', 'down', 'squatting')
-   * @param repCount Total hitungan rep saat ini
-   * @param now Performance timestamp dalam milidetik
-   */
-  public update(exerciseState: string, repCount: number, now: number): TempoState {
-    const isBottomState =
-      exerciseState === 'down' ||
-      exerciseState === 'squatting' ||
-      exerciseState === 'crunched' ||
-      exerciseState === 'open';
-
-    const isTopState = exerciseState === 'up' || exerciseState === 'closed';
-
-    let feedback: string | undefined;
-
-    // Deteksi jika repetisi bertambah (Rep selesai)
-    if (repCount > this.lastRepCount) {
-      if (this.phase === 'ascending' || this.phase === 'bottom') {
-        this.concentricDuration = (now - this.phaseStartTime) / 1000;
-      }
-
-      const ecc = Math.max(0.3, Math.min(6.0, this.descentDuration));
-      const bot = Math.max(0.1, Math.min(3.0, this.bottomDuration));
-      const con = Math.max(0.3, Math.min(4.0, this.concentricDuration));
-      const totalTUT = ecc + bot + con;
-
-      const isRushed = ecc < 1.1;
-      if (isRushed) {
-        this.rushedRepsCount++;
-        feedback = 'Gerakan terlalu terburu-buru. Tahan fase turun 2-3 detik!';
-      }
-
-      this.completedRepsCount++;
-      this.totalTUTSec += totalTUT;
-
-      const eccRounded = Math.round(ecc);
-      const botRounded = Math.round(bot);
-      const conRounded = Math.round(con);
-
-      this.lastRepTempo = {
-        eccentricSec: Number(ecc.toFixed(1)),
-        bottomPauseSec: Number(bot.toFixed(1)),
-        concentricSec: Number(con.toFixed(1)),
-        totalTUTSec: Number(totalTUT.toFixed(1)),
-        tempoFormat: `${Math.max(1, eccRounded)}-${botRounded}-${Math.max(1, conRounded)}`,
-        isRushed,
-      };
-
-      // Reset timer fase per-rep
-      this.phase = 'idle';
-      this.descentDuration = 0;
-      this.bottomDuration = 0;
-      this.concentricDuration = 0;
-      this.phaseStartTime = now;
-      this.lastRepCount = repCount;
-    } else {
-      // Transisi fase internal
-      if (isTopState) {
-        if (this.phase !== 'idle' && this.phase !== 'ascending') {
-          this.concentricDuration = (now - this.phaseStartTime) / 1000;
-        }
-        if (this.phase === 'bottom') {
-          this.phase = 'ascending';
-          this.phaseStartTime = now;
-        }
-      } else if (isBottomState) {
-        if (this.phase === 'descending') {
-          this.descentDuration = (now - this.phaseStartTime) / 1000;
-          this.phase = 'bottom';
-          this.phaseStartTime = now;
-        } else if (this.phase === 'idle') {
-          // Gerakan mulai turun
-          this.phase = 'descending';
-          this.phaseStartTime = now;
-        }
-      }
+  update(res: Pick<TrackingResult, 'phase' | 'lastRep'>, exerciseId?: string): TempoState {
+    const tempo = res.lastRep ? tempoFromRepEvent(res.lastRep, exerciseId) : null;
+    if (tempo) {
+      this.lastRepTempo = tempo;
+      this.reps++;
+      this.sumEcc += tempo.eccentricSec;
+      this.sumBot += tempo.bottomPauseSec;
+      this.sumCon += tempo.concentricSec;
+      this.totalTUTSec += tempo.totalTUTSec;
+      if (tempo.isRushed) this.rushed++;
     }
+    return this.state(res.phase);
+  }
 
-    const currentPhaseDuration = this.phaseStartTime > 0 ? (now - this.phaseStartTime) / 1000 : 0;
-    const avgTUT = this.completedRepsCount > 0 ? this.totalTUTSec / this.completedRepsCount : 0;
-
+  private state(phase: TrackingResult['phase']): TempoState {
+    const n = this.reps;
+    const averageTempo: RepTempoResult | null =
+      n > 0
+        ? {
+            eccentricSec: Number((this.sumEcc / n).toFixed(2)),
+            bottomPauseSec: Number((this.sumBot / n).toFixed(2)),
+            concentricSec: Number((this.sumCon / n).toFixed(2)),
+            totalTUTSec: Number((this.totalTUTSec / n).toFixed(2)),
+            tempoFormat: fmt(this.sumEcc / n, this.sumBot / n, this.sumCon / n),
+            isRushed: this.rushed > n / 2,
+          }
+        : null;
     return {
-      currentPhase: this.phase,
-      phaseDurationSec: Number(currentPhaseDuration.toFixed(1)),
+      currentPhase: !phase || phase === 'top' ? 'idle' : phase,
       lastRepTempo: this.lastRepTempo,
+      averageTempo,
       totalTUTSec: Number(this.totalTUTSec.toFixed(1)),
-      averageTUTPerRep: Number(avgTUT.toFixed(1)),
-      rushedRepsCount: this.rushedRepsCount,
-      feedback,
+      averageTUTPerRep: averageTempo ? Number(averageTempo.totalTUTSec.toFixed(1)) : 0,
+      rushedRepsCount: this.rushed,
+      repsTimed: n,
     };
   }
 
-  public reset(): void {
-    this.phase = 'idle';
-    this.phaseStartTime = 0;
-    this.descentDuration = 0;
-    this.bottomDuration = 0;
-    this.concentricDuration = 0;
-    this.lastRepCount = 0;
+  reset(): void {
     this.lastRepTempo = null;
-    this.totalTUTSec = 0;
-    this.completedRepsCount = 0;
-    this.rushedRepsCount = 0;
+    this.sumEcc = this.sumBot = this.sumCon = this.totalTUTSec = 0;
+    this.reps = this.rushed = 0;
   }
 }

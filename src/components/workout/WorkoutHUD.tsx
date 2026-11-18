@@ -114,8 +114,9 @@ export function WorkoutHUD({
     );
   }, [reps, isTimer]);
 
-  const requestReset = () => (reps > 0 ? setConfirm('reset') : onReset());
-  const requestFinish = () => (reps > 0 ? setConfirm('finish') : onFinish());
+  // Konfirmasi bila ada progres (rep atau waktu tahan plank) agar tidak hilang karena salah tekan.
+  const requestReset = () => (currentVal > 0 ? setConfirm('reset') : onReset());
+  const requestFinish = () => (currentVal > 0 ? setConfirm('finish') : onFinish());
   const runConfirmed = () => {
     if (confirm === 'reset') onReset();
     if (confirm === 'finish') onFinish();

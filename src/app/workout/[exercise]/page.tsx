@@ -22,6 +22,7 @@ import { getExerciseProgression } from '@/lib/progression/engine';
 import { recordWorkoutSessionCompletion } from '@/lib/gamification/streak';
 import { AchievementToast } from '@/components/ui/AchievementToast';
 import type { Achievement } from '@/lib/gamification/types';
+import { estimateCalories, summarizeFaults, hasWork } from '@/lib/workout/session-metrics';
 import Link from 'next/link';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 
@@ -74,7 +75,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
   const [showReferenceModal, setShowReferenceModal] = useState(false);
 
   // Metrik form quality & kalori
-  const [formScore, setFormScore] = useState(94);
+  const [formScore, setFormScore] = useState<number | null>(null);
   const [caloriesBurned, setCaloriesBurned] = useState(0);
   const [cleanRepsCount, setCleanRepsCount] = useState(0);
   const [faultsSummary, setFaultsSummary] = useState<
@@ -99,7 +100,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
   const [isMetronomeEnabled, setIsMetronomeEnabled] = useState(false);
 
   // Status Asimetri & Voice Command
-  const [averageSymmetryScore, setAverageSymmetryScore] = useState(96);
+  const [averageSymmetryScore, setAverageSymmetryScore] = useState<number | null>(null);
   const [isVoiceCommandListening, setIsVoiceCommandListening] = useState(false);
   const [lastVoiceCommand, setLastVoiceCommand] = useState<string | null>(null);
 
@@ -264,30 +265,35 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
   };
 
   // Handler: Toggle Perintah Suara Dua Arah (Voice Commands)
+  // Callback didaftarkan sekali saat toggle; lewat ref agar selalu membaca state terbaru
+  // (sebelumnya "jeda"/"lanjut" memakai isRunning basi dari saat mikrofon dinyalakan).
   const handleToggleVoiceCommand = () => {
-    const next = voiceCommander.toggleListening((evt: VoiceCommandEvent) => {
-      setLastVoiceCommand(evt.phrase);
-      triggerHapticSuccess();
-      setTimeout(() => setLastVoiceCommand(null), 3500);
-
-      if (evt.action === 'pause') {
-        if (isRunning) handleTogglePause();
-      } else if (evt.action === 'resume') {
-        if (!isRunning) handleTogglePause();
-      } else if (evt.action === 'finish') {
-        handleFinish();
-      } else if (evt.action === 'reset') {
-        handleReset();
-      } else if (evt.action === 'start') {
-        if (sessionPhase === 'guide') {
-          handleGuideReady();
-        } else if (sessionPhase === 'env-check') {
-          handleEnvCheckPassed();
-        }
-      }
-    });
+    const next = voiceCommander.toggleListening((evt: VoiceCommandEvent) => voiceCommandRef.current(evt));
     setIsVoiceCommandListening(next);
   };
+
+  const handleVoiceCommand = (evt: VoiceCommandEvent) => {
+    setLastVoiceCommand(evt.phrase);
+    triggerHapticSuccess();
+    setTimeout(() => setLastVoiceCommand(null), 3500);
+
+    if (evt.action === 'pause') {
+      if (isRunning) handleTogglePause();
+    } else if (evt.action === 'resume') {
+      if (!isRunning) handleTogglePause();
+    } else if (evt.action === 'finish') {
+      if (sessionPhase === 'active') handleFinish();
+    } else if (evt.action === 'reset') {
+      if (sessionPhase === 'active') handleReset();
+    } else if (evt.action === 'start') {
+      if (sessionPhase === 'guide') {
+        handleGuideReady();
+      } else if (sessionPhase === 'env-check') {
+        handleEnvCheckPassed();
+      }
+    }
+  };
+  const voiceCommandRef = useRef(handleVoiceCommand);
 
   useEffect(() => {
     return () => {
@@ -314,57 +320,39 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
     const symScore = getAverageSymmetryScore();
     setAverageSymmetryScore(symScore);
 
-    // Hitung estimasi kalori dan form score
-    const reps = tracker.config.type === 'counter' ? trackingResult?.repCount ?? 0 : 0;
-    const holdSec = tracker.config.type === 'timer' ? trackingResult?.holdDuration ?? 0 : 0;
+    const isCounter = tracker.config.type === 'counter';
+    const reps = isCounter ? trackingResult?.repCount ?? 0 : 0;
+    const holdSec = !isCounter ? trackingResult?.holdDuration ?? 0 : 0;
 
-    const recordedFaults = tracker.getFaults();
     const cleanReps = tracker.getCleanRepCount();
     setCleanRepsCount(cleanReps);
 
-    // Hitung frekuensi tiap jenis kesalahan
-    const faultCounts = new Map<string, { name: string; count: number; description: string }>();
-    for (const f of recordedFaults) {
-      const existing = faultCounts.get(f.name);
-      if (existing) {
-        existing.count++;
-      } else {
-        faultCounts.set(f.name, {
-          name: f.name,
-          count: 1,
-          description: f.description,
-        });
-      }
-    }
-    const summarizedFaults = Array.from(faultCounts.values());
+    const summarizedFaults = summarizeFaults(tracker.getFaults());
     setFaultsSummary(summarizedFaults);
 
-    // Form Score dihitung realistis:
-    // Base 100%, kurangi 4% per kesalahan yang terdeteksi, batas minimum 60%
-    const totalFaultsCount = recordedFaults.length;
-    const calculatedFormScore = Math.max(
-      60,
-      Math.min(100, Math.round(100 - totalFaultsCount * 4))
-    );
+    // Form score dari tracker: rep bersih / rep total (plank: waktu tahan bersih / waktu terlacak).
+    // Null bila belum ada rep, tampil "—" (bukan angka karangan / lantai buatan).
+    const calculatedFormScore = trackingResult?.formScore ?? null;
 
-    // Rumus MET: Rata-rata 0.12 - 0.15 kcal per detik latihan
-    const calculatedCalories = Math.max(1, Math.round(elapsedSeconds * 0.14 + reps * 0.35));
+    // Kalori berbasis MET gerakan × waktu aktif (bukan rumus flat yang sama untuk semua gerakan).
+    const calculatedCalories = Math.round(estimateCalories(tracker.config.id, elapsedSeconds));
 
     setCaloriesBurned(calculatedCalories);
     setFormScore(calculatedFormScore);
     setSessionPhase('summary');
 
+    const sessionId = `local-${Date.now()}`;
     const sessionPayload = {
-      id: `local-${Date.now()}`,
+      id: sessionId,
       exercise: tracker.config.id,
       exerciseName: tracker.config.name,
-      reps: tracker.config.type === 'counter' ? reps : null,
-      cleanReps: tracker.config.type === 'counter' ? cleanReps : null,
-      holdDurationSec: tracker.config.type === 'timer' ? holdSec : null,
+      reps: isCounter ? reps : null,
+      cleanReps: isCounter ? cleanReps : null,
+      holdDurationSec: !isCounter ? holdSec : null,
       sessionDurationSec: elapsedSeconds,
       caloriesBurned: calculatedCalories,
-      formScore: calculatedFormScore,
-      symmetryScore: symScore,
+      formScore: calculatedFormScore ?? undefined,
+      symmetryScore: symScore ?? undefined,
       faultsSummary: summarizedFaults,
       startedAt: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
     };
@@ -379,12 +367,13 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
       console.warn('Gagal menyimpan sesi ke localStorage (kuota penyimpanan penuh):', err);
     }
 
-    // 2. Perbarui status Gamifikasi (Streak, XP, Level, & Pencapaian)
-    try {
+    // 2. Perbarui status Gamifikasi (Streak, XP, Level, & Pencapaian).
+    //    Sesi tanpa rep / waktu tahan tidak memberi streak atau XP (mencegah "farming" sesi kosong).
+    if (hasWork(reps, holdSec)) try {
       const gamificationResult = recordWorkoutSessionCompletion({
         exercise: tracker.config.id,
-        reps: tracker.config.type === 'counter' ? reps : null,
-        holdDurationSec: tracker.config.type === 'timer' ? holdSec : null,
+        reps: isCounter ? reps : null,
+        holdDurationSec: !isCounter ? holdSec : null,
         sessionDurationSec: elapsedSeconds,
         formScore: calculatedFormScore,
       });
@@ -401,12 +390,26 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
       console.warn('Gagal memperbarui status gamifikasi:', err);
     }
 
-    // 3. Kirim data ringkasan sesi ke backend /api/sessions
+    // 3. Kirim data ringkasan sesi ke backend /api/sessions.
+    //    Nama field mengikuti sessionPayloadSchema (calories/faults/clientSessionId); sebelumnya
+    //    caloriesBurned & faultsSummary dibuang diam-diam oleh validasi zod.
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sessionPayload),
+        body: JSON.stringify({
+          clientSessionId: sessionId,
+          exercise: sessionPayload.exercise,
+          reps: sessionPayload.reps,
+          cleanReps: sessionPayload.cleanReps,
+          holdDurationSec: sessionPayload.holdDurationSec,
+          sessionDurationSec: sessionPayload.sessionDurationSec,
+          formScore: calculatedFormScore,
+          symmetryScore: symScore,
+          calories: calculatedCalories,
+          faults: summarizedFaults.slice(0, 20),
+          startedAt: sessionPayload.startedAt,
+        }),
       });
       if (!res.ok) {
         console.warn('API /api/sessions mengembalikan status non-OK:', res.status);
@@ -420,6 +423,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
   useEffect(() => {
     handleTogglePauseRef.current = handleTogglePause;
     handleFinishRef.current = handleFinish;
+    voiceCommandRef.current = handleVoiceCommand;
   });
 
   // Handler: Mulai Ulang setelah Selesai
@@ -584,10 +588,10 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
               cleanReps={cleanRepsCount}
               holdDurationSec={trackingResult?.holdDuration ?? 0}
               sessionDurationSec={elapsedSeconds}
-              formScore={formScore}
-              symmetryScore={averageSymmetryScore}
-              tempoRatio={tempoState?.lastRepTempo?.tempoFormat}
-              avgTutSec={tempoState?.lastRepTempo?.totalTUTSec}
+              formScore={formScore ?? undefined}
+              symmetryScore={averageSymmetryScore ?? undefined}
+              tempoRatio={tempoState?.averageTempo?.tempoFormat}
+              avgTutSec={tempoState?.averageTempo?.totalTUTSec}
               caloriesBurned={caloriesBurned}
               faultsSummary={faultsSummary}
               celebrate={unlockedAchievements.length > 0 || leveledUp}

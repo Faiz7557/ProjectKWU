@@ -25,7 +25,7 @@ export const DEFAULT_REP_CONFIG: Omit<RepStateConfig, 'top' | 'bottom'> = {
   maxRepMs: 8000,
 };
 
-type Phase = 'top' | 'descending' | 'bottom' | 'ascending';
+export type Phase = 'top' | 'descending' | 'bottom' | 'ascending';
 
 /**
  * State machine generik hitung-repetisi untuk sinyal 1D (sudut, dsb.).
@@ -62,6 +62,9 @@ export class RepStateMachine {
    */
   update(value: number, t: number): RepEvent | null {
     const c = this.config;
+    // Extremum dilacak tiap frame selama rep berjalan, bukan hanya saat transisi fase.
+    // Tanpa ini partial rep hampir tidak pernah terdeteksi dan kedalaman rep tidak akurat.
+    if (this.phase !== 'top') this.extremum = Math.min(this.extremum, value);
     const desired = this.desiredPhase(value);
 
     if (desired === null) {
