@@ -3,6 +3,7 @@
 // Diadaptasi dari 8B Sill template (MIT): section:sitters
 import { useEffect, useRef, useState } from 'react';
 import { Volume2, Vibrate, Timer, Square } from 'lucide-react';
+import { Icon3D, type Icon3DHandle } from '@/components/three/Icon3D';
 import { bindEffects } from '@/lib/motion/effects';
 import { useScene } from '@/lib/motion/useScene';
 import { voiceCoach } from '@/lib/audio/voice-coach';
@@ -28,6 +29,10 @@ export function CoachSenses() {
   const [vibMsg, setVibMsg] = useState('');
   const [metroOn, setMetroOn] = useState(false);
   const [metroMsg, setMetroMsg] = useState('');
+  // Ikon 3D ikut bereaksi saat tombol demo ditekan (find-animation #1).
+  const voiceIco = useRef<Icon3DHandle>(null);
+  const vibIco = useRef<Icon3DHandle>(null);
+  const metroIco = useRef<Icon3DHandle>(null);
   const timers = useRef<number[]>([]);
 
   useScene(ref, () => {
@@ -59,10 +64,13 @@ export function CoachSenses() {
     }
     voiceCoach.setEnabled(true);
     voiceCoach.speak(VOICE_SAMPLE, true);
+    voiceIco.current?.play('waves');
     setVoiceMsg(`Pelatih berkata: "${VOICE_SAMPLE}"`);
   };
 
   const playVibrate = () => {
+    // Goyangan ikon tetap diputar di perangkat tanpa getar: jadi gambaran polanya.
+    vibIco.current?.play('shake');
     if (typeof navigator === 'undefined' || !('vibrate' in navigator)) {
       setVibMsg('Perangkat ini tidak mendukung getar');
       return;
@@ -80,7 +88,12 @@ export function CoachSenses() {
     setMetroOn(true);
     setMetroMsg('Metronom berjalan, 4 ketukan');
     BEATS.forEach((beat, i) => {
-      timers.current.push(window.setTimeout(beat, i * BEAT_MS));
+      timers.current.push(
+        window.setTimeout(() => {
+          beat();
+          metroIco.current?.play('tick');
+        }, i * BEAT_MS),
+      );
     });
     timers.current.push(window.setTimeout(() => stopMetro('Selesai'), BEATS.length * BEAT_MS));
   };
@@ -94,7 +107,7 @@ export function CoachSenses() {
       <ul className="cs-list">
         <li className="cs-item">
           <div className="cs-frame ld-frame bg-ink text-paper" data-motion="peek">
-            <div className="cs-ico" aria-hidden="true"><Volume2 strokeWidth={1.5} /></div>
+            <div className="cs-ico" aria-hidden="true"><Icon3D ref={voiceIco} icon={Volume2} strokeWidth={1.5} /></div>
           </div>
           <div className="cs-ledge panel-1">
             <h3 className="ld-h3">Suara</h3>
@@ -105,7 +118,7 @@ export function CoachSenses() {
         </li>
         <li className="cs-item">
           <div className="cs-frame ld-frame bg-ink text-paper" data-motion="peek">
-            <div className="cs-ico" aria-hidden="true"><Vibrate strokeWidth={1.5} /></div>
+            <div className="cs-ico" aria-hidden="true"><Icon3D ref={vibIco} icon={Vibrate} strokeWidth={1.5} /></div>
           </div>
           <div className="cs-ledge panel-3">
             <h3 className="ld-h3">Getar</h3>
@@ -116,7 +129,7 @@ export function CoachSenses() {
         </li>
         <li className="cs-item">
           <div className="cs-frame ld-frame bg-ink text-paper" data-motion="peek">
-            <div className="cs-ico" aria-hidden="true"><Timer strokeWidth={1.5} /></div>
+            <div className="cs-ico" aria-hidden="true"><Icon3D ref={metroIco} icon={Timer} strokeWidth={1.5} /></div>
           </div>
           <div className="cs-ledge panel-7">
             <h3 className="ld-h3">Metronom</h3>

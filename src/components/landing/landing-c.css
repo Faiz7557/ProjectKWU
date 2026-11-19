@@ -11,6 +11,7 @@
   .pm-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gutter); }
   .pm-card { min-height: clamp(280px, 40svh, 380px); padding: clamp(20px, 2.4vw, 40px); display: flex; flex-direction: column; justify-content: space-between; gap: 22px; }
   .pm-word { font-size: clamp(40px, 4.6vw, 74px); overflow-wrap: anywhere; }
+  .pm-ico { width: clamp(40px, 4vw, 64px); height: auto; }
   @media (max-width: 900px) {
     .pm-head h2, .pm-head p { grid-column: 1 / 13; }
     .pm-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }

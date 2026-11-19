@@ -5,15 +5,17 @@ import { useRef } from 'react';
 import { gsap } from '@/lib/motion/gsap';
 import { useScene } from '@/lib/motion/useScene';
 import { bindEffects } from '@/lib/motion/effects';
+import { Camera, ClipboardCheck, Flame, Hourglass, ScanFace, TrendingUp } from 'lucide-react';
+import { Icon3D } from '@/components/three/Icon3D';
 
 // Alur fase dari src/app/workout/[exercise]/page.tsx: guide, env-check, countdown (5 dtk), active, summary, lalu simpan progres.
 const STEPS = [
-  { title: 'Panduan kamera', panel: 1, text: 'Lihat posisi kamera dan contoh form ideal sebelum mulai.' },
-  { title: 'Cek lingkungan', panel: 3, text: 'Kamera memeriksa apakah tubuhmu terlihat dan terdeteksi.' },
-  { title: 'Hitung mundur', panel: 4, text: 'Hitung mundur 5 detik supaya kamu sempat bersiap.' },
-  { title: 'Latihan', panel: 5, text: 'Rep dihitung otomatis. Peringatan form dan suara pelatih muncul saat kamu bergerak.' },
-  { title: 'Ringkasan', panel: 7, text: 'Lihat rep, rep bersih, skor form, dan durasi sesimu.' },
-  { title: 'Progres', panel: 8, text: 'Sesi masuk riwayat, dan XP, level, serta lencana ikut diperbarui.' },
+  { title: 'Panduan kamera', panel: 1, icon: Camera, text: 'Lihat posisi kamera dan contoh form ideal sebelum mulai.' },
+  { title: 'Cek lingkungan', panel: 3, icon: ScanFace, text: 'Kamera memeriksa apakah tubuhmu terlihat dan terdeteksi.' },
+  { title: 'Hitung mundur', panel: 4, icon: Hourglass, text: 'Hitung mundur 5 detik supaya kamu sempat bersiap.' },
+  { title: 'Latihan', panel: 5, icon: Flame, text: 'Rep dihitung otomatis. Peringatan form dan suara pelatih muncul saat kamu bergerak.' },
+  { title: 'Ringkasan', panel: 7, icon: ClipboardCheck, text: 'Lihat rep, rep bersih, skor form, dan durasi sesimu.' },
+  { title: 'Progres', panel: 8, icon: TrendingUp, text: 'Sesi masuk riwayat, dan XP, level, serta lencana ikut diperbarui.' },
 ];
 
 export function SessionDay() {
@@ -78,7 +80,10 @@ export function SessionDay() {
           <ol className="la-day__track">
             {STEPS.map((s, i) => (
               <li key={s.title} className={`la-day__step ld-panel panel-${s.panel}`}>
-                <span className="la-day__idx ld-big" aria-hidden="true">{i + 1}</span>
+                <div className="la-day__top">
+                  <span className="la-day__idx ld-big" aria-hidden="true">{i + 1}</span>
+                  <Icon3D icon={s.icon} className="la-day__ico" drawIn />
+                </div>
                 <h3 className="ld-h3">{s.title}</h3>
                 <p className="ld-body">{s.text}</p>
               </li>
