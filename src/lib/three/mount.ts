@@ -17,7 +17,10 @@ export interface MountOptions {
 export function isWebGLAvailable(): boolean {
   try {
     const c = document.createElement('canvas');
-    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    // Lepas konteks probe segera: browser membatasi jumlah konteks WebGL, MediaPipe juga memakai satu.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return !!gl;
   } catch {
     return false;
   }

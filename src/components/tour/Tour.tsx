@@ -33,10 +33,17 @@ export function Tour({ steps, onClose }: { steps: TourStep[]; onClose: () => voi
     const pad = step.padding ?? 8;
     const started = Date.now();
     let scrolled = false;
+    let found = false;
     let raf = 0;
     const loop = () => {
       const el = step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
+      // Target sempat tampil lalu hilang = pengguna sudah pindah layar (mis. kamera menyala): tutup, jangan menutupi sesi.
+      if (!el && found) {
+        onClose();
+        return;
+      }
       if (el) {
+        found = true;
         if (!scrolled) {
           scrolled = true;
           el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
@@ -58,7 +65,7 @@ export function Tour({ steps, onClose }: { steps: TourStep[]; onClose: () => voi
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [step, reduce, steps.length]);
+  }, [step, reduce, steps.length, onClose]);
 
   // Langkah "tekan": lanjut saat elemen yang dibingkai ditekan.
   const targetReady = rect !== null;
@@ -76,10 +83,34 @@ export function Tour({ steps, onClose }: { steps: TourStep[]; onClose: () => voi
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowRight' && !step?.waitForClick) next();
       else if (e.key === 'ArrowLeft') setI((x) => Math.max(0, x - 1));
+      else if (e.key === 'Tab' && cardRef.current) {
+        // Fokus tetap di kartu panduan (aria-modal).
+        const f = cardRef.current.querySelectorAll<HTMLElement>('button:not([disabled])');
+        if (!f.length) return;
+        const first = f[0];
+        const last = f[f.length - 1];
+        const at = document.activeElement;
+        if (e.shiftKey && (at === first || !cardRef.current.contains(at))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (at === last || !cardRef.current.contains(at))) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [next, onClose, step]);
+
+  // Fokus ke kartu tiap langkah (kalau autoFocus tidak ada), kembalikan fokus saat panduan ditutup.
+  useEffect(() => {
+    if (!cardRef.current?.contains(document.activeElement)) cardRef.current?.focus();
+  }, [i]);
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    return () => prev?.focus?.();
+  }, []);
 
   useLayoutEffect(() => {
     if (cardRef.current) setCardH(cardRef.current.offsetHeight);
@@ -174,8 +205,9 @@ export function Tour({ steps, onClose }: { steps: TourStep[]; onClose: () => voi
       <div
         key={i}
         ref={cardRef}
+        tabIndex={-1}
         aria-live="polite"
-        className="pointer-events-auto absolute border-2 border-text bg-canvas p-4 text-text"
+        className="pointer-events-auto absolute outline-none border-2 border-text bg-canvas p-4 text-text"
         style={{
           width: CW,
           left: cx,

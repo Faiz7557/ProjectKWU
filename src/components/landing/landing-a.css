@@ -86,7 +86,7 @@
     .la-s1 { height: auto; min-height: 100svh; padding-top: calc(56px + var(--gutter)); }
     .la-grid { height: auto; min-height: calc(100svh - 56px - 2 * var(--gutter)); grid-template-columns: 1fr; grid-template-rows: none; }
     .la-grid > div { grid-column: 1 !important; grid-row: auto !important; }
-    .la-a { order: 1; } .la-b { order: 2; min-height: 220px; } .la-e { order: 3; } .la-c { order: 4; } .la-d { order: 5; }
+    .la-a { order: 1; } .la-b { order: 2; height: 260px; } /* tinggi tetap: placeholder SVG -> figur 3D tidak menggeser layout (CLS) */ .la-e { order: 3; } .la-c { order: 4; } .la-d { order: 5; }
     .la-a .ld-hero { font-size: clamp(40px, 12.4vw, 60px); }
     .la-curl { width: 44px; top: 14px; right: 18px; }
     .la-s2 { padding-top: calc(56px + var(--gutter)); grid-template-columns: 1fr; }

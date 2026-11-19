@@ -32,7 +32,7 @@ const ITEMS: { q: string; a: ReactNode }[] = [
   },
   {
     q: 'Bagaimana menjeda tanpa menyentuh layar?',
-    a: 'Pakai gestur saat latihan. Angkat satu tangan dan tahan sebentar untuk menjeda atau melanjutkan. Silangkan lengan untuk mengakhiri sesi, dan acungkan jempol untuk konfirmasi.',
+    a: 'Pakai gestur saat latihan. Angkat satu tangan dan tahan sebentar untuk menjeda atau melanjutkan. Silangkan lengan untuk mengakhiri sesi.',
   },
   {
     q: 'Apa beda Akun Gratis dan Berbayar?',

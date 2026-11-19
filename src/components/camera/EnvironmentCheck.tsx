@@ -18,7 +18,8 @@ type CheckState = 'ok' | 'warn' | 'pending';
 
 // Satu baris checklist: ikon status + judul + detail (UI_UX_BRIEF §7.3, checklist ala iOS).
 function CheckRow({ state, icon: Icon, title, detail }: { state: CheckState; icon: React.ComponentType<{ className?: string }>; title: string; detail: string }) {
-  const tone = state === 'ok' ? 'text-success' : state === 'warn' ? 'text-warning' : 'text-text-2';
+  // Ikon di atas chip ink: pakai warna terang yang tetap kontras di kedua tema (bukan token teks tema/panel).
+  const tone = state === 'ok' ? 'text-panel-7' : state === 'warn' ? 'text-panel-8' : 'text-paper';
   return (
     <li className="flex items-start gap-3 bg-paper p-3.5 text-ink">
       <span className={`mt-0.5 grid size-8 shrink-0 place-items-center bg-ink ${tone}`} aria-hidden="true">
