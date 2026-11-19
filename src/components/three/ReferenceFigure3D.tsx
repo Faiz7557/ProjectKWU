@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { mountScene } from '@/lib/three/mount';
-import { createPoseFigure } from '@/lib/three/pose-figure';
+import { createMannequin, floorY } from '@/lib/three/mannequin';
+import { blendPose } from '@/lib/three/pose-blend';
 import { withDepth } from '@/lib/three/pose-depth';
 import { EXERCISE_REFERENCES } from '@/lib/mediapipe/reference-poses';
 import { dark, panels } from '@/lib/design/tokens';
@@ -13,6 +14,8 @@ import { PoseFigureSvg } from './PoseFigureSvg';
 interface Props {
   exerciseId: string;
   phaseIndex?: number;
+  /** Durasi perpindahan antar fase. Saat auto-play dibuat panjang agar terlihat seperti rep nyata. */
+  tweenMs?: number;
   className?: string;
 }
 
@@ -23,7 +26,6 @@ const PITCH_MAX = 25 * RAD;
 const OVERDRAG = 0.35; // rad di luar batas yang boleh ditarik
 const K = 80; // kekakuan pegas
 const C = 8.2; // redaman: zeta ~0,46 => bounce ~0,2
-const TWEEN_MS = 400;
 const KEY_STEP = 10 * RAD;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -34,10 +36,11 @@ interface Controller {
   nudgeYaw: (d: number) => void;
 }
 
-export function ReferenceFigure3D({ exerciseId, phaseIndex = 0, className }: Props) {
+export function ReferenceFigure3D({ exerciseId, phaseIndex = 0, tweenMs = 400, className }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const ctrlRef = useRef<Controller | null>(null);
   const phaseRef = useRef(phaseIndex);
+  const tweenRef = useRef(tweenMs);
   const [fallback, setFallback] = useState(false);
   const ref = EXERCISE_REFERENCES[exerciseId] ?? EXERCISE_REFERENCES.squat;
 
@@ -46,24 +49,27 @@ export function ReferenceFigure3D({ exerciseId, phaseIndex = 0, className }: Pro
     if (!host) return;
     const poses = ref.phases.map((p) => withDepth(p.landmarks, ref.orientation));
     const idx = (i: number) => clamp(i, 0, poses.length - 1);
-    const cur: NormalizedLandmark[] = poses[idx(phaseRef.current)].map((l) => ({ ...l }));
-    const from: NormalizedLandmark[] = cur.map((l) => ({ ...l }));
+    let cur: NormalizedLandmark[] = poses[idx(phaseRef.current)].map((l) => ({ ...l }));
+    let from: NormalizedLandmark[] = cur;
     let to = poses[idx(phaseRef.current)];
     let tweenStart = -1;
 
     // Sudut: nilai, target, kecepatan (yaw lalu pitch).
-    let yaw = 0;
-    let yawT = 0;
+    // Sudut awal 3/4 agar volume tubuh langsung terbaca, bukan siluet samping datar.
+    let yaw = -0.5;
+    let yawT = -0.5;
     let yawV = 0;
-    let pitch = 0;
-    let pitchT = 0;
+    let pitch = 0.14;
+    let pitchT = 0.14;
     let pitchV = 0;
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
     let raf = 0;
     let last = 0;
-    let fig: ReturnType<typeof createPoseFigure> | null = null;
+    let fig: ReturnType<typeof createMannequin> | null = null;
+    // Poros putar di tengah tubuh (bukan di tengah bingkai 0..1).
+    const pivot = new THREE.Group();
     let renderOnce: () => void = () => {};
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -85,19 +91,11 @@ export function ReferenceFigure3D({ exerciseId, phaseIndex = 0, className }: Pro
         }
       }
       if (fig) {
-        fig.group.rotation.set(pitch, yaw, 0, 'YXZ');
+        pivot.rotation.set(pitch, yaw, 0, 'YXZ');
         if (tweenStart >= 0) {
-          const k = Math.min(1, (now - tweenStart) / TWEEN_MS);
-          const e = ease(k);
-          for (let i = 0; i < cur.length; i++) {
-            const p = from[i];
-            const q = to[i];
-            const o = cur[i];
-            o.x = p.x + (q.x - p.x) * e;
-            o.y = p.y + (q.y - p.y) * e;
-            o.z = p.z + (q.z - p.z) * e;
-          }
-          fig.update(cur);
+          const k = Math.min(1, (now - tweenStart) / tweenRef.current);
+          cur = blendPose(from, to, ease(k));
+          fig.update(cur, ref.orientation);
           if (k >= 1) tweenStart = -1;
           else busy = true;
         }
@@ -113,21 +111,38 @@ export function ReferenceFigure3D({ exerciseId, phaseIndex = 0, className }: Pro
     const handle = mountScene(host, {
       continuous: false,
       onContextLost: () => setFallback(true),
-      build: ({ scene, camera }) => {
-        fig = createPoseFigure({
-          jointRadius: 0.045,
-          boneRadius: 0.025,
-          jointColor: dark.text,
-          boneColor: panels[6].bg,
-          highlightColor: dark.danger,
-        });
-        fig.update(cur);
-        scene.add(fig.group);
-        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-        const dl = new THREE.DirectionalLight(0xffffff, 2);
-        dl.position.set(2, 3, 4);
+      build: ({ scene, camera, renderer }) => {
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        fig = createMannequin({ bodyColor: panels[0].bg, jointColor: dark.text });
+        fig.setFloor(floorY(poses));
+        fig.update(cur, ref.orientation);
+        // Pusatkan figur dan atur jarak kamera dari ukuran semua fase.
+        const box = new THREE.Box3();
+        for (const pose of poses) {
+          for (const i of [0, 11, 12, 15, 16, 23, 24, 27, 28]) {
+            const l = pose[i];
+            box.expandByPoint(new THREE.Vector3((l.x - 0.5) * 2, -(l.y - 0.5) * 2, l.z * 2));
+          }
+        }
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        fig.group.position.copy(center).negate();
+        pivot.add(fig.group);
+        pivot.rotation.set(pitch, yaw, 0, 'YXZ');
+        scene.add(pivot);
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3330, 1.4));
+        const dl = new THREE.DirectionalLight(0xffffff, 2.4);
+        dl.position.set(1.5, 4, 3);
+        dl.castShadow = true;
+        dl.shadow.mapSize.set(1024, 1024);
+        dl.shadow.camera.left = -2;
+        dl.shadow.camera.right = 2;
+        dl.shadow.camera.top = 2;
+        dl.shadow.camera.bottom = -2;
+        dl.shadow.radius = 4;
         scene.add(dl);
-        camera.position.set(0, 0, 3.6);
+        camera.position.set(0, 0, Math.max(size.x * 2.2, size.y * 2.3, 2.2));
         return () => fig?.dispose();
       },
     });
@@ -153,7 +168,7 @@ export function ReferenceFigure3D({ exerciseId, phaseIndex = 0, className }: Pro
       pitchV = 0;
       yawT = yaw;
       pitchT = pitch;
-      if (fig) fig.group.rotation.set(pitch, yaw, 0, 'YXZ');
+      if (fig) pivot.rotation.set(pitch, yaw, 0, 'YXZ');
       renderOnce();
     };
     const onUp = () => {
@@ -170,20 +185,12 @@ export function ReferenceFigure3D({ exerciseId, phaseIndex = 0, className }: Pro
 
     ctrlRef.current = {
       setPhase: (i) => {
-        for (let j = 0; j < cur.length; j++) {
-          from[j].x = cur[j].x;
-          from[j].y = cur[j].y;
-          from[j].z = cur[j].z;
-        }
+        from = cur;
         to = poses[idx(i)];
         if (reduced.matches) {
           tweenStart = -1;
-          for (let j = 0; j < cur.length; j++) {
-            cur[j].x = to[j].x;
-            cur[j].y = to[j].y;
-            cur[j].z = to[j].z;
-          }
-          fig?.update(cur);
+          cur = to;
+          fig?.update(cur, ref.orientation);
         } else {
           tweenStart = performance.now();
         }
@@ -205,6 +212,10 @@ export function ReferenceFigure3D({ exerciseId, phaseIndex = 0, className }: Pro
       handle.dispose();
     };
   }, [ref]);
+
+  useEffect(() => {
+    tweenRef.current = tweenMs;
+  }, [tweenMs]);
 
   useEffect(() => {
     phaseRef.current = phaseIndex;

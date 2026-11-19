@@ -1,4 +1,5 @@
-const CACHE_NAME = 'smartfit-v2-cache-v2';
+// Naikkan versi ini tiap kali @mediapipe/tasks-vision di-upgrade agar WASM lama terhapus.
+const CACHE_NAME = 'smartfit-v2-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/workout',
@@ -42,6 +43,8 @@ self.addEventListener('fetch', (event) => {
   if (
     url.pathname.includes('pose_landmarker_lite.task') ||
     url.hostname.includes('cdn.jsdelivr.net') ||
+    // Loader JS dan binary .wasm harus satu kebijakan cache; kalau tidak versinya bisa beda.
+    url.pathname.startsWith('/wasm/') ||
     url.pathname.endsWith('.wasm') ||
     url.pathname.endsWith('.task')
   ) {
