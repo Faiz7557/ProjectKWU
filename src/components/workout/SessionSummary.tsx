@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import confetti from 'canvas-confetti';
 import { AlertTriangle, CheckCircle2, FileDown, History, Lightbulb, RotateCcw } from 'lucide-react';
 import type { ExerciseConfig } from '@/trackers/types';
@@ -42,6 +42,9 @@ const COACH_TIPS: Record<string, string> = {
   plank: 'Bernapas teratur dan dorong lantai menjauh dari bahu untuk menstabilkan tulang belikat.',
 };
 
+// Delay stagger 50ms per panel dihitung di CSS (.sum-in) dari --i.
+const stagger = (i: number) => ({ '--i': i }) as CSSProperties;
+
 const formatMinSec = (sec: number) => {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
@@ -70,6 +73,23 @@ export function SessionSummary({
   const coachTip = COACH_TIPS[config.id] || 'Lakukan pemanasan dan pendinginan setiap kali berlatih.';
   const cleanPct = cleanReps !== undefined && reps > 0 ? (cleanReps / reps) * 100 : null;
 
+  // Hitung naik angka rep (600ms, ease-out cubic) hanya saat celebrate; reduced motion langsung angka akhir.
+  const [countP, setCountP] = useState(celebrate && !isTimer ? 0 : 1);
+  useEffect(() => {
+    if (!celebrate || isTimer) return;
+    const dur = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600;
+    let id = 0;
+    let start: number | null = null;
+    const step = (now: number) => {
+      start ??= now;
+      const t = dur ? Math.min(1, (now - start) / dur) : 1;
+      setCountP(1 - (1 - t) ** 3);
+      if (t < 1) id = requestAnimationFrame(step);
+    };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
+  }, [celebrate, isTimer]);
+
   useEffect(() => {
     if (!celebrate) return;
     try {
@@ -80,8 +100,8 @@ export function SessionSummary({
   }, [celebrate]);
 
   return (
-    <article className="mx-auto w-full max-w-lg space-y-5 text-center animate-enter">
-      <header className="space-y-3">
+    <article className="mx-auto w-full max-w-lg space-y-5 text-center">
+      <header className="space-y-3 animate-enter">
         <span className="mx-auto grid size-16 place-items-center bg-panel-7 text-on-panel-7">
           <CheckCircle2 className="size-9" aria-hidden="true" />
         </span>
@@ -90,19 +110,19 @@ export function SessionSummary({
       </header>
 
       <div className="grid grid-cols-2 text-left">
-        <Card tone={1} className="col-span-2 p-5">
-          <Stat label={isTimer ? 'Waktu tahan' : 'Repetisi'} value={isTimer ? formatMinSec(holdDurationSec) : reps} size="xl" />
+        <Card tone={1} className="sum-in col-span-2 p-5" style={stagger(0)}>
+          <Stat label={isTimer ? 'Waktu tahan' : 'Repetisi'} value={isTimer ? formatMinSec(holdDurationSec) : Math.round(reps * countP)} size="xl" />
         </Card>
-        <Card tone={7}>
+        <Card tone={7} className="sum-in" style={stagger(1)}>
           <Stat label="Form" value={formScore ?? null} unit={formScore !== undefined ? '%' : undefined} size="l" />
         </Card>
-        <Card tone={8}>
+        <Card tone={8} className="sum-in" style={stagger(2)}>
           <Stat label="Estimasi kalori*" value={kcal} unit="kkal" size="l" />
         </Card>
-        <Card tone={5}>
+        <Card tone={5} className="sum-in" style={stagger(3)}>
           <Stat label="Simetri" value={symmetryScore ?? null} unit={symmetryScore !== undefined ? '%' : undefined} size="l" />
         </Card>
-        <Card tone={4}>
+        <Card tone={4} className="sum-in" style={stagger(4)}>
           <Stat label="Durasi" value={formatMinSec(sessionDurationSec)} size="m" />
         </Card>
       </div>

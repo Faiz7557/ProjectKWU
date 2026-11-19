@@ -472,7 +472,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
 
         {/* FASE 2: Pemeriksaan Lingkungan & Kesiapan AI (Env Check) */}
         {sessionPhase === 'env-check' && (
-          <div className="w-full space-y-6">
+          <div className="w-full space-y-6 animate-enter">
             <CameraFeed
               videoRef={videoRef}
               canvasRef={canvasRef}
@@ -501,7 +501,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
 
         {/* FASE 4: Active Workout Flow */}
         {sessionPhase === 'active' && (
-          <div className="w-full space-y-6">
+          <div className="w-full space-y-6 animate-enter">
             {/* Error handling jika kamera ditolak / model gagal */}
             {(cameraError || modelError) && (
               <div className="bg-danger-soft border border-danger/30 rounded-md p-4 flex items-center gap-3 text-sm text-danger max-w-2xl mx-auto">
@@ -566,7 +566,8 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
           title="Contoh form"
           description="Ikuti gerakan ini. Latihan lanjut setelah dialog ditutup."
         >
-          <ReferencePoseVisualizer exerciseId={tracker.config.id} autoPlayDefault={true} />
+          {/* <dialog> native tetap me-mount isi saat tertutup; unmount agar scene 3D tidak hidup saat inferensi lanjut */}
+          {showReferenceModal && <ReferencePoseVisualizer exerciseId={tracker.config.id} autoPlayDefault={true} />}
           <Button
             className="mt-5 w-full"
             onClick={() => {

@@ -90,9 +90,13 @@ export default function WorkoutSelectorPage() {
                 <li key={ex.id} data-tour={idx === 0 ? 'wk-card' : undefined}>
                   <Link
                     href={`/workout/${ex.id}`}
-                    className={`pressable group flex h-full flex-col justify-between gap-5 p-5 transition-opacity hover:opacity-90 panel-${EXERCISE_PANEL[ex.id] ?? 4}`}
+                    className={`pressable group relative flex h-full flex-col justify-between gap-5 overflow-hidden p-5 panel-${EXERCISE_PANEL[ex.id] ?? 4}`}
                   >
-                    <div className="space-y-3">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 bg-text/10 [clip-path:inset(100%_0_0_100%)] transition-[clip-path] duration-200 ease-[var(--ease-out-soft)] motion-reduce:transition-none pointer-fine:group-hover:[clip-path:inset(0)]"
+                    />
+                    <div className="relative z-10 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <ExerciseIcon exercise={ex.id} />
                         {prog && (
@@ -111,7 +115,7 @@ export default function WorkoutSelectorPage() {
                       )}
                       <p className="line-clamp-2 text-callout text-text-2">{prog?.coachTip || ex.instructions[0]}</p>
                     </div>
-                    <div className="flex items-center justify-between border-t border-separator pt-4">
+                    <div className="relative z-10 flex items-center justify-between border-t border-separator pt-4">
                       <span className="text-footnote text-text-2">Kamera {isFront ? 'depan' : 'samping'}</span>
                       <span className="grid size-9 place-items-center border border-current text-text">
                         <ArrowRight className="size-4" aria-hidden="true" />

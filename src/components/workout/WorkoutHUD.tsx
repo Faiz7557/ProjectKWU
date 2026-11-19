@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ExerciseConfig, TrackingResult, BilateralSymmetry } from '@/trackers/types';
 import type { TempoState } from '@/lib/tempo/tempo-tracker';
 import type { GestureDetectionResult } from '@/lib/gestures/detector';
@@ -84,11 +84,12 @@ export function WorkoutHUD({
 }: WorkoutHUDProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirm, setConfirm] = useState<'reset' | 'finish' | null>(null);
-  const repRef = useRef<HTMLSpanElement>(null);
-  const prevReps = useRef(0);
 
   const isTimer = config.type === 'timer';
   const reps = trackingResult?.repCount ?? 0;
+  // Rep saat HUD pertama tampil: tidak dianimasikan agar mount tetap diam.
+  const [mountReps] = useState(reps);
+  const tick = !isTimer && reps !== mountReps;
   const holdDuration = trackingResult?.holdDuration ?? 0;
   const currentVal = isTimer ? holdDuration : reps;
   const state = trackingResult?.state ?? 'idle';
@@ -98,20 +99,6 @@ export function WorkoutHUD({
   const gestureActive = !!gestureResult && gestureResult.activeGesture !== 'none';
 
   const targetProgress = targetValue && targetValue > 0 ? Math.min(100, Math.round((currentVal / targetValue) * 100)) : null;
-
-  // Denyut rep: scale 1 -> 1.12 -> 1 lewat WAAPI (native, tanpa menunggu re-render React).
-  // Bunyi beep dan haptic dipicu di handler sesi pada frame yang sama.
-  useEffect(() => {
-    if (isTimer) return;
-    if (reps === prevReps.current) return;
-    prevReps.current = reps;
-    const el = repRef.current;
-    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    el.animate(
-      [{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }],
-      { duration: 450, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
-    );
-  }, [reps, isTimer]);
 
   // Konfirmasi bila ada progres (rep atau waktu tahan plank) agar tidak hilang karena salah tekan.
   const requestReset = () => (currentVal > 0 ? setConfirm('reset') : onReset());
@@ -132,12 +119,13 @@ export function WorkoutHUD({
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 text-left">
       {/* Metrik utama: angka besar dan target */}
-      <section aria-label="Hasil latihan" className="panel-1 p-5">
+      <section aria-label="Hasil latihan" className="panel-1 relative isolate p-5">
+        {tick && <span key={`f${reps}`} aria-hidden="true" className="rep-flash pointer-events-none absolute inset-0 -z-10 bg-panel-8" />}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-caption font-semibold uppercase tracking-[0.06em]">{isTimer ? 'Durasi tahan' : 'Repetisi'}</p>
             <p className="mt-1 flex items-baseline gap-2">
-              <span ref={repRef} className="num inline-block origin-center font-display text-metric-xl">
+              <span key={isTimer ? 'timer' : reps} className={`num inline-block origin-center font-display text-metric-xl${tick ? ' rep-tick' : ''}`}>
                 {isTimer ? formatDuration(holdDuration) : reps}
               </span>
               {!isTimer && <span className="text-headline text-text-2">rep</span>}

@@ -179,3 +179,17 @@ html:has(dialog[open]) { overflow: hidden; }
   --theme-text: var(--text); --theme-text-2: var(--text-2); --theme-text-3: var(--text-3);
   --theme-accent-text: var(--accent-text); --theme-separator: var(--separator);
 }
+
+/* T5.1 motion: start */
+.rep-tick { animation: rep-tick 160ms var(--ease-out-soft) both; }
+.rep-flash { animation: rep-flash 120ms linear both; }
+.sum-in { animation: sum-in 300ms var(--ease-out-soft) both; animation-delay: calc(var(--i, 0) * 50ms); }
+@keyframes rep-tick { from { opacity: 0; transform: translateY(30%); } }
+@keyframes rep-flash { from { opacity: 1; } to { opacity: 0; } }
+@keyframes sum-in { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) {
+  /* Tanpa gerak: angka dan panel langsung tampil. Kilat warna tetap (perubahan warna, bukan gerak). */
+  .rep-tick, .sum-in { animation: none !important; }
+  .rep-flash { animation-duration: 120ms !important; }
+}
+/* T5.1 motion: end */

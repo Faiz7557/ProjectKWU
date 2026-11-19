@@ -512,7 +512,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
 
         {/* PHASE 2: ENV CHECK */}
         {phase === 'env-check' && currentTracker && (
-          <div className="w-full space-y-4">
+          <div className="w-full space-y-4 animate-enter">
             <CameraFeed
               videoRef={videoRef}
               canvasRef={canvasRef}
@@ -541,7 +541,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
 
         {/* PHASE 4: ACTIVE EXERCISE */}
         {phase === 'exercise' && currentTracker && (
-          <div className="w-full space-y-4">
+          <div className="w-full space-y-4 animate-enter">
             <CircuitProgress
               steps={routine.steps}
               currentStepIndex={stepIndex}

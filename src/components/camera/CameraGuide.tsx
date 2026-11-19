@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ExerciseConfig } from '@/trackers/types';
 import { Camera, Smartphone, CheckCircle2, UserCheck, ShieldCheck } from 'lucide-react';
+import { CameraSetupSceneLazy } from '@/components/three/CameraSetupSceneLazy';
 import { ReferencePoseVisualizer } from './ReferencePoseVisualizer';
 import { SegmentedControl } from '@/components/ui/Controls';
 import { Button } from '@/components/ui/Button';
@@ -51,9 +52,10 @@ export function CameraGuide({ config, onReady }: CameraGuideProps) {
       {tab === 'camera' && (
         <div className="animate-enter space-y-4">
           <div className="flex flex-col items-center gap-3 bg-paper p-5 text-center text-ink">
-            <span className="grid size-16 place-items-center border-2 border-dashed border-ink" aria-hidden="true">
-              <Smartphone className="size-8" />
-            </span>
+            {/* Unmount (ganti tab / fase env-check) memanggil handle.dispose() di CameraSetupScene. */}
+            <div className="aspect-[4/3] w-full bg-surface text-text">
+              <CameraSetupSceneLazy orientation={config.cameraOrientation} className="h-full w-full" />
+            </div>
             <Badge tone="accent">{isFront ? 'Menghadap ke depan' : 'Arahkan dari samping'}</Badge>
             <p className="max-w-sm text-callout">
               {isFront

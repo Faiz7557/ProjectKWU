@@ -138,16 +138,17 @@ export function HeroFigure({ className, exercise = 'squat' }: Props) {
           className="h-full w-full text-text"
         />
       ) : (
-        <>
-          <div ref={hostRef} className="h-full w-full" aria-hidden="true" />
+        // Caption di alur normal di atas kanvas, bukan absolute, agar tidak menimpa kepala figur di 375 px.
+        <div className="flex h-full w-full flex-col">
           <div
             ref={captionRef}
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-3 px-3 text-center text-sm font-medium"
+            className="pointer-events-none shrink-0 px-3 py-2 text-center text-sm font-medium"
           >
             {OK_TEXT}
           </div>
-        </>
+          <div ref={hostRef} className="min-h-0 w-full flex-1" aria-hidden="true" />
+        </div>
       )}
     </div>
   );

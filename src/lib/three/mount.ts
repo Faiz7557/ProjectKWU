@@ -139,6 +139,8 @@ export function mountScene(host: HTMLElement, options: MountOptions) {
       }
     });
     renderer.dispose();
+    // Lepas konteks WebGL segera agar MediaPipe (GPU delegate) tidak berebut konteks di HP.
+    renderer.forceContextLoss();
     canvas.remove();
   }
 

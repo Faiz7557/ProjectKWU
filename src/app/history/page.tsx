@@ -69,6 +69,7 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [gamification, setGamification] = useState<UserGamificationState | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [newBadges, setNewBadges] = useState<string[]>([]);
 
   // Muat data dari localStorage dan API backend
   useEffect(() => {
@@ -83,7 +84,17 @@ export default function HistoryPage() {
         // Abaikan data rusak; tampilkan kosong
       }
 
-      setGamification(getGamificationState());
+      const gam = getGamificationState();
+      setGamification(gam);
+      // Lencana yang terbuka sejak kunjungan terakhir saja yang pop (dibaca di efek, aman hidrasi).
+      try {
+        const unlocked = gam.unlockedAchievementIds;
+        const seen: string[] = JSON.parse(localStorage.getItem('sf-seen-badges') ?? '[]');
+        setNewBadges(unlocked.filter((id) => !seen.includes(id)));
+        localStorage.setItem('sf-seen-badges', JSON.stringify(unlocked));
+      } catch {
+        // Tanpa storage: halaman tetap tampil, tanpa animasi
+      }
 
       // Gabungkan dengan API bila tersedia; jika gagal, tetap pakai data lokal
       try {
@@ -211,7 +222,7 @@ export default function HistoryPage() {
                 return (
                   <li
                     key={ach.id}
-                    className={`flex flex-col justify-between gap-3 p-3.5 ${unlocked ? 'panel-8' : 'bg-surface-3'}`}
+                    className={`flex flex-col justify-between gap-3 p-3.5 ${unlocked ? 'panel-8' : 'bg-surface-3'}${unlocked && newBadges.includes(ach.id) ? ' animate-pop' : ''}`}
                   >
                     <div className="space-y-1">
                       <span className={`grid size-9 place-items-center ${unlocked ? 'bg-ink text-paper' : 'bg-surface text-text-3'}`} aria-hidden="true">

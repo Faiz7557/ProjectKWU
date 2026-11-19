@@ -5,6 +5,7 @@ import { EXERCISE_REFERENCES, type PosePhase } from '@/lib/mediapipe/reference-p
 import { POSE_CONNECTIONS, PoseLandmark } from '@/lib/mediapipe/landmarks';
 import { Play, Pause, CheckCircle2, Sparkles, Compass } from 'lucide-react';
 import { useThemePref } from '@/lib/theme/use-theme';
+import { ReferenceFigure3DLazy } from '@/components/three/ReferenceFigure3DLazy';
 
 interface ReferencePoseVisualizerProps {
   exerciseId: string;
@@ -22,6 +23,7 @@ export function ReferencePoseVisualizer({
 
   const [activePhaseIndex, setActivePhaseIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(autoPlayDefault && phases.length > 1);
+  const [view, setView] = useState<'2d' | '3d'>('2d');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const theme = useThemePref();
 
@@ -156,7 +158,7 @@ export function ReferencePoseVisualizer({
       ctx.fillText(text, pillX + 6, pillY);
     }
     ctx.restore();
-  }, [currentPhase, theme]);
+  }, [currentPhase, theme, view]);
 
   return (
     <div className={`bg-surface p-5 md:p-6 text-text ${className}`}>
@@ -174,6 +176,22 @@ export function ReferencePoseVisualizer({
               {currentPhase.name}
             </h3>
           </div>
+        </div>
+
+        <div className="flex items-center gap-1 bg-surface-3 p-1" role="group" aria-label="Tampilan contoh">
+          {(['2d', '3d'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={view === v}
+              onClick={() => setView(v)}
+              className={`px-2.5 py-1 text-xs font-semibold transition-all ${
+                view === v ? 'bg-accent text-on-accent' : 'text-text-2 hover:text-text'
+              }`}
+            >
+              {v === '2d' ? '2D' : '3D'}
+            </button>
+          ))}
         </div>
 
         {/* Phase selector tabs / toggle buttons */}
@@ -214,12 +232,16 @@ export function ReferencePoseVisualizer({
 
       {/* Visual Canvas Skeleton */}
       <div className="relative w-full aspect-[4/3] max-h-64 overflow-hidden bg-ink mb-4 flex items-center justify-center">
-        <canvas
-          ref={canvasRef}
-          width={480}
-          height={360}
-          className="w-full h-full object-contain"
-        />
+        {view === '3d' ? (
+          <ReferenceFigure3DLazy exerciseId={exerciseId} phaseIndex={activePhaseIndex} className="h-full w-full" />
+        ) : (
+          <canvas
+            ref={canvasRef}
+            width={480}
+            height={360}
+            className="w-full h-full object-contain"
+          />
+        )}
 
         {/* Orientation badge */}
         <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-paper text-xs font-semibold text-ink flex items-center gap-1">
@@ -232,6 +254,8 @@ export function ReferencePoseVisualizer({
           {currentPhase.subtitle}
         </div>
       </div>
+
+      {view === '3d' && <p className="-mt-2 mb-3 text-xs text-text-2">Seret untuk memutar</p>}
 
       {/* Deskripsi & Checkpoint Form yang Benar */}
       <div className="space-y-2.5 bg-surface-3 p-3.5">
