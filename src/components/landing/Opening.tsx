@@ -3,9 +3,11 @@
 // Diadaptasi dari 8B Sill template (MIT)
 import Link from 'next/link';
 import { useRef, type ReactNode } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { Dumbbell, ShieldCheck } from 'lucide-react';
 import { getAllExerciseConfigs } from '@/trackers';
-import { EXERCISE_PANEL, ExerciseIcon } from '@/components/ui/ExerciseIcon';
+import { EXERCISE_ICONS, EXERCISE_PANEL } from '@/components/ui/ExerciseIcon';
+import { Icon3D } from '@/components/three/Icon3D';
+import type { IconMotion } from '@/lib/three/icon-motion';
 import { gsap } from '@/lib/motion/gsap';
 import { useScene } from '@/lib/motion/useScene';
 import { bindEffects } from '@/lib/motion/effects';
@@ -13,6 +15,15 @@ import { cn } from '@/lib/cn';
 
 // Nama gerakan dari config tracker (sumber tunggal), diambil sekali.
 const EXERCISES = getAllExerciseConfigs().map((c) => ({ id: c.id, name: c.name }));
+
+// Hover/fokus: ikon 3D memeragakan satu rep gerakannya (find-animation #2).
+const REP_MOTION: Record<string, IconMotion> = {
+  pushup: 'lift',
+  squat: 'dip',
+  situp: 'crunch',
+  jumping_jack: 'hop',
+  plank: 'spin',
+};
 
 const CURL = 'M100 296 C58 236 38 158 90 110 C140 64 200 92 190 140 C181 184 121 186 115 146 C110 116 150 104 158 130';
 
@@ -56,6 +67,11 @@ export function Opening({ hero }: { hero?: ReactNode }) {
       wins.forEach((win, i) => {
         const at = Math.min(0.84, (house.offsetTop + win.offsetTop) / first.offsetHeight + 0.05 + jitter[i % jitter.length]);
         tl.fromTo(win, { clipPath: 'inset(100% 0% 0% 0%)' }, { clipPath: 'inset(0% 0% 0% 0%)', duration: 0.14, ease: 'power1.out' }, at);
+        // Panel terbuka penuh: ikon 3D-nya mulai "tergambar" (Icon3D mendengar sf-icon-draw / data-drawn).
+        tl.call(() => {
+          win.setAttribute('data-drawn', '');
+          window.dispatchEvent(new CustomEvent('sf-icon-draw', { detail: win }));
+        }, undefined, at + 0.14);
       });
       return () => {
         undo();
@@ -125,7 +141,12 @@ export function Opening({ hero }: { hero?: ReactNode }) {
           {EXERCISES.map((ex) => (
             <li key={ex.id} className={cn('la-win', `panel-${EXERCISE_PANEL[ex.id] ?? 4}`, `la-win--${ex.id}`)}>
               <Link href={`/workout/${ex.id}`} className="la-win__link">
-                <ExerciseIcon exercise={ex.id} className="la-win__icon" />
+                <Icon3D
+                  icon={EXERCISE_ICONS[ex.id] ?? Dumbbell}
+                  className="la-win__icon"
+                  drawIn
+                  hoverMotion={REP_MOTION[ex.id]}
+                />
                 <span className="ld-h3">{ex.name}</span>
               </Link>
             </li>

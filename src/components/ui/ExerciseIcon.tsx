@@ -2,7 +2,7 @@ import { Activity, Dumbbell, Footprints, PersonStanding, Timer, type LucideIcon 
 import { cn } from '@/lib/cn';
 
 // Ikon lucide sementara untuk tiap latihan (UI_UX_BRIEF §6 + D6). Emoji dihapus: render beda tiap OS.
-const ICONS: Record<string, LucideIcon> = {
+export const EXERCISE_ICONS: Record<string, LucideIcon> = {
   pushup: Dumbbell,
   squat: Footprints,
   situp: Activity,
@@ -22,7 +22,7 @@ export const EXERCISE_PANEL: Record<string, 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8> = {
 const PANEL_CLASS = ['', 'panel-1', 'panel-2', 'panel-3', 'panel-4', 'panel-5', 'panel-6', 'panel-7', 'panel-8'];
 
 export function ExerciseIcon({ exercise, className }: { exercise: string; className?: string }) {
-  const Icon = ICONS[exercise] ?? Dumbbell;
+  const Icon = EXERCISE_ICONS[exercise] ?? Dumbbell;
   const panel = EXERCISE_PANEL[exercise];
   return (
     <span

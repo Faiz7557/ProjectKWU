@@ -60,7 +60,8 @@
   .la-win:nth-child(1), .la-win:nth-child(2) { grid-column: span 3; }
   .la-win__link { display: flex; flex-direction: column; justify-content: space-between; gap: 12px; flex: 1; min-height: 44px; padding: clamp(16px, 2vw, 28px); color: inherit; text-decoration: none; }
   .la-win__icon { align-self: flex-start; background: transparent; }
-  .la-win__icon svg { width: 2rem; height: 2rem; }
+  .la-win__icon { width: clamp(104px, 13vw, 210px); aspect-ratio: 1; margin: -14px 0 0 -14px; }
+  .la-win__icon svg { width: 100%; height: 100%; }
   .la-win__link:hover .ld-h3 { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; }
 
   .la-ink { display: none; position: absolute; z-index: 0; top: 0; left: -3%; width: 106%; height: 220svh; pointer-events: none; color: var(--ink); }
@@ -134,6 +135,9 @@
   .la-day__track { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gutter); list-style: none; margin: 0; padding: 0; }
   .la-day__step { display: flex; flex-direction: column; gap: 10px; min-height: 220px; }
   .la-day__step .ld-body { max-width: 34ch; }
+  .la-day__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .la-day__ico { width: clamp(72px, 7vw, 112px); aspect-ratio: 1; flex-shrink: 0; margin: -10px -10px 0 0; }
+  .la-day__ico svg { width: 100%; height: 100%; }
   @media (max-width: 1000px) { .la-day__track { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 600px) { .la-day__track { grid-template-columns: 1fr; } }
 

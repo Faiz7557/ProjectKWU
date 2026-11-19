@@ -2,15 +2,16 @@
 
 // Diadaptasi dari 8B Sill template (MIT): section "quiet" + adegan quiet
 import { useRef } from 'react';
+import { Globe, Mic, VideoOff, WifiOff } from 'lucide-react';
 import { useScene } from '@/lib/motion/useScene';
 import { gsap } from '@/lib/motion/gsap';
 import { bindEffects } from '@/lib/motion/effects';
 
 const PROMISES = [
-  { word: 'Nol video', text: 'Kamera diproses di perangkatmu. Tidak ada video yang dikirim ke server.', tone: 'panel-2' },
-  { word: 'Tanpa instal', text: 'Langsung jalan di browser. Mau lebih praktis, pasang sebagai aplikasi (PWA) di layar utama.', tone: 'panel-3' },
-  { word: 'Bisa offline', text: 'Model pose dan aset disimpan browser setelah sesi pertama. Sesi pertama tetap butuh internet.', tone: 'panel-6' },
-  { word: 'Suara Indonesia', text: 'Pelatih suara berbahasa Indonesia mengoreksi formmu saat kamu bergerak.', tone: 'panel-7' },
+  { word: 'Nol video', text: 'Kamera diproses di perangkatmu. Tidak ada video yang dikirim ke server.', tone: 'panel-2', icon: VideoOff },
+  { word: 'Tanpa instal', text: 'Langsung jalan di browser. Mau lebih praktis, pasang sebagai aplikasi (PWA) di layar utama.', tone: 'panel-3', icon: Globe },
+  { word: 'Bisa offline', text: 'Model pose dan aset disimpan browser setelah sesi pertama. Sesi pertama tetap butuh internet.', tone: 'panel-6', icon: WifiOff },
+  { word: 'Suara Indonesia', text: 'Pelatih suara berbahasa Indonesia mengoreksi formmu saat kamu bergerak.', tone: 'panel-7', icon: Mic },
 ] as const;
 
 // Posisi awal tiap kartu: [rotasi, y, x]
@@ -56,6 +57,7 @@ export function Promises() {
       <ul className="pm-list">
         {PROMISES.map((p) => (
           <li key={p.word} className={`pm-card ${p.tone}`}>
+            <p.icon className="pm-ico" strokeWidth={1.5} aria-hidden="true" />
             <h3 className="ld-big pm-word">{p.word}</h3>
             <p className="ld-body">{p.text}</p>
           </li>

@@ -2,7 +2,9 @@
 
 import { useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Dumbbell, Flame, SlidersHorizontal, Zap, type LucideIcon } from 'lucide-react';
+import { EXERCISE_ICONS } from '@/components/ui/ExerciseIcon';
+import { Icon3D } from '@/components/three/Icon3D';
 import { bindEffects } from '@/lib/motion/effects';
 import { gsap, ScrollTrigger } from '@/lib/motion/gsap';
 import { useScene } from '@/lib/motion/useScene';
@@ -11,6 +13,12 @@ import './landing.css';
 import './landing-b.css';
 
 const TONES = ['panel-4', 'panel-5', 'panel-7'];
+// Ikon kartu per program (id dari lib/routines/presets).
+const ROUTINE_ICON: Record<string, LucideIcon> = {
+  'full-body-burn': Zap,
+  'upper-body-core': Dumbbell,
+  'hiit-cardio': Flame,
+};
 
 export function Programs() {
   const ref = useRef<HTMLElement>(null);
@@ -41,7 +49,10 @@ export function Programs() {
         {WORKOUT_ROUTINES.map((r, i) => (
           <li key={r.id} className="pr-item">
             <article className={`pr-card ${TONES[i % TONES.length]}`}>
-              <h3 className="ld-h3">{r.name}</h3>
+              <div className="pr-top">
+                <h3 className="ld-h3">{r.name}</h3>
+                <Icon3D icon={ROUTINE_ICON[r.id] ?? Zap} className="pr-ico" drawIn />
+              </div>
               <p className="pr-meta ld-label">
                 <span>{r.level}</span>
                 <span>±{r.estimatedMinutes} menit</span>
@@ -50,7 +61,13 @@ export function Programs() {
               <ol className="pr-steps">
                 {r.steps.map((s, j) => (
                   <li key={j}>
-                    <b>{s.exerciseName}</b>
+                    <b>
+                      {(() => {
+                        const Ico = EXERCISE_ICONS[s.exerciseId] ?? Dumbbell;
+                        return <Ico className="pr-step-ico" strokeWidth={2} aria-hidden="true" />;
+                      })()}
+                      {s.exerciseName}
+                    </b>
                     <span>
                       {s.targetReps ? `${s.targetReps} rep` : `${s.targetDurationSec} detik`}
                       {s.restSecAfter > 0 ? ` · istirahat ${s.restSecAfter} dtk` : ''}
@@ -66,7 +83,10 @@ export function Programs() {
         ))}
         <li className="pr-item">
           <article className="pr-card panel-8">
-            <h3 className="ld-h3">Buat program sendiri</h3>
+            <div className="pr-top">
+              <h3 className="ld-h3">Buat program sendiri</h3>
+              <Icon3D icon={SlidersHorizontal} className="pr-ico" drawIn />
+            </div>
             <p className="ld-body">Pilih kombinasi dari 5 gerakan, atur target, dan simpan di perangkatmu.</p>
             <Link href="/workout" className="ld-btn pr-cta">
               Buka latihan <ArrowRight size={18} aria-hidden="true" />
