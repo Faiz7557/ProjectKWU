@@ -23,7 +23,8 @@ export function ReferencePoseVisualizer({
 
   const [activePhaseIndex, setActivePhaseIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(autoPlayDefault && phases.length > 1);
-  const [view, setView] = useState<'2d' | '3d'>('2d');
+  // 3D (manekin yang memeragakan gerakan) jadi tampilan utama; 2D tetap ada untuk label sudut.
+  const [view, setView] = useState<'2d' | '3d'>('3d');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const theme = useThemePref();
 
@@ -233,7 +234,12 @@ export function ReferencePoseVisualizer({
       {/* Visual Canvas Skeleton */}
       <div className="relative w-full aspect-[4/3] max-h-64 overflow-hidden bg-ink mb-4 flex items-center justify-center">
         {view === '3d' ? (
-          <ReferenceFigure3DLazy exerciseId={exerciseId} phaseIndex={activePhaseIndex} className="h-full w-full" />
+          <ReferenceFigure3DLazy
+            exerciseId={exerciseId}
+            phaseIndex={activePhaseIndex}
+            tweenMs={isAutoPlaying ? 1300 : 400}
+            className="h-full w-full"
+          />
         ) : (
           <canvas
             ref={canvasRef}
