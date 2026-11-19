@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import { bindEffects } from '@/lib/motion/effects';
 import { useScene } from '@/lib/motion/useScene';
 import { ALL_ACHIEVEMENTS, LEVEL_TIERS } from '@/lib/gamification/achievements';
+import { achievementIcon } from '@/components/ui/achievement-icons';
+import { Icon3D } from '@/components/three/Icon3D';
 import './landing.css';
 import './landing-b.css';
 
@@ -60,7 +62,7 @@ export function ProgressPreview() {
                 onBlur={() => setOpen((o) => (o === a.id ? null : o))}
                 onKeyDown={(e) => e.key === 'Escape' && setOpen(null)}
               >
-                <span className="pg-badge-ico" aria-hidden="true">{a.icon}</span>
+                <Icon3D icon={achievementIcon(a.id)} className="pg-badge-ico" drawIn />
                 <span className="pg-badge-name">{a.name}</span>
                 <span className="pg-badge-meta">{TIER_LABEL[a.tier]} · +{a.xpReward} XP</span>
               </button>

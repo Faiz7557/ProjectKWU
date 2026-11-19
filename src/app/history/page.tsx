@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Flame, Clock, Trophy, Award, Calendar, Lock, Sparkles, CheckCircle2, TriangleAlert, Trash2, Plus, Target } from 'lucide-react';
+import { Flame, Clock, Trophy, Calendar, Lock, Sparkles, CheckCircle2, TriangleAlert, Trash2, Plus, Target } from 'lucide-react';
 import { getGamificationState } from '@/lib/gamification/streak';
 import { ALL_ACHIEVEMENTS, getLevelInfo } from '@/lib/gamification/achievements';
+import { achievementIcon } from '@/components/ui/achievement-icons';
 import type { UserGamificationState } from '@/lib/gamification/types';
 import { TopBar } from '@/components/ui/Nav';
 import { Button } from '@/components/ui/Button';
@@ -219,6 +220,7 @@ export default function HistoryPage() {
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {ALL_ACHIEVEMENTS.map((ach) => {
                 const unlocked = gamification.unlockedAchievementIds.includes(ach.id);
+                const AchIcon = achievementIcon(ach.id);
                 return (
                   <li
                     key={ach.id}
@@ -226,7 +228,7 @@ export default function HistoryPage() {
                   >
                     <div className="space-y-1">
                       <span className={`grid size-9 place-items-center ${unlocked ? 'bg-ink text-paper' : 'bg-surface text-text-3'}`} aria-hidden="true">
-                        {unlocked ? <Award className="size-5" /> : <Lock className="size-4" />}
+                        {unlocked ? <AchIcon className="size-5" /> : <Lock className="size-4" />}
                       </span>
                       <h3 className={`line-clamp-1 text-subhead font-semibold ${unlocked ? 'text-text' : 'text-text-2'}`}>{ach.name}</h3>
                       <p className="line-clamp-2 text-caption leading-snug text-text-2">{ach.description}</p>
