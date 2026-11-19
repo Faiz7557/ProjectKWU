@@ -16,7 +16,7 @@ export function CircuitProgress({
 }: CircuitProgressProps) {
   const next = steps[currentStepIndex + 1];
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-2.5 rounded-lg border border-separator bg-surface p-4 shadow-1">
+    <div className="mx-auto w-full max-w-2xl space-y-2.5 bg-surface p-4">
       <div className="flex items-center justify-between gap-3 text-footnote">
         <span className="min-w-0 truncate font-semibold text-text">{routineName}</span>
         <span className="num shrink-0 text-text-2">
@@ -38,7 +38,7 @@ export function CircuitProgress({
           return (
             <span
               key={idx}
-              className={`h-2 flex-1 rounded-full ${isDone ? 'bg-success' : isCurrent ? 'h-2.5 bg-accent' : 'bg-surface-3'}`}
+              className={`h-2 flex-1 ${isDone ? 'bg-panel-7' : isCurrent ? 'h-2.5 bg-accent' : 'bg-surface-3'}`}
             />
           );
         })}

@@ -93,7 +93,7 @@ export class SitupTracker implements ExerciseTracker {
     const partialFault: FormFault = {
       id: 'incomplete_crunch',
       name: 'Angkatan Kurang Tinggi',
-      description: 'Angkat torso lebih tinggi mendekati paha Anda.',
+      description: 'Angkat torso lebih tinggi mendekati pahamu.',
       timestamp,
       severity: 'warning',
       bodyPart: 'spine',

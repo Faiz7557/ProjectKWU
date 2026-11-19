@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import confetti from 'canvas-confetti';
 import { AlertTriangle, CheckCircle2, FileDown, History, Lightbulb, RotateCcw } from 'lucide-react';
 import type { ExerciseConfig } from '@/trackers/types';
@@ -42,6 +42,9 @@ const COACH_TIPS: Record<string, string> = {
   plank: 'Bernapas teratur dan dorong lantai menjauh dari bahu untuk menstabilkan tulang belikat.',
 };
 
+// Delay stagger 50ms per panel dihitung di CSS (.sum-in) dari --i.
+const stagger = (i: number) => ({ '--i': i }) as CSSProperties;
+
 const formatMinSec = (sec: number) => {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
@@ -70,6 +73,23 @@ export function SessionSummary({
   const coachTip = COACH_TIPS[config.id] || 'Lakukan pemanasan dan pendinginan setiap kali berlatih.';
   const cleanPct = cleanReps !== undefined && reps > 0 ? (cleanReps / reps) * 100 : null;
 
+  // Hitung naik angka rep (600ms, ease-out cubic) hanya saat celebrate; reduced motion langsung angka akhir.
+  const [countP, setCountP] = useState(celebrate && !isTimer ? 0 : 1);
+  useEffect(() => {
+    if (!celebrate || isTimer) return;
+    const dur = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600;
+    let id = 0;
+    let start: number | null = null;
+    const step = (now: number) => {
+      start ??= now;
+      const t = dur ? Math.min(1, (now - start) / dur) : 1;
+      setCountP(1 - (1 - t) ** 3);
+      if (t < 1) id = requestAnimationFrame(step);
+    };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
+  }, [celebrate, isTimer]);
+
   useEffect(() => {
     if (!celebrate) return;
     try {
@@ -80,25 +100,36 @@ export function SessionSummary({
   }, [celebrate]);
 
   return (
-    <article className="mx-auto w-full max-w-lg space-y-5 text-center animate-enter">
-      <header className="space-y-3">
-        <span className="mx-auto grid size-16 place-items-center rounded-full bg-success-soft text-success">
+    <article className="mx-auto w-full max-w-lg space-y-5 text-center">
+      <header className="space-y-3 animate-enter">
+        <span className="mx-auto grid size-16 place-items-center bg-panel-7 text-on-panel-7">
           <CheckCircle2 className="size-9" aria-hidden="true" />
         </span>
-        <p className="text-caption font-semibold uppercase tracking-wide text-accent-text">Latihan selesai</p>
-        <h2 className="text-title-1 text-text">{config.name}</h2>
+        <p className="text-caption font-semibold uppercase tracking-[0.06em] text-accent-text">Latihan selesai</p>
+        <h2 className="font-display text-title-1 text-text">{config.name}</h2>
       </header>
 
-      <Card className="grid grid-cols-2 gap-5 text-left">
-        <Stat label={isTimer ? 'Waktu tahan' : 'Repetisi'} value={isTimer ? formatMinSec(holdDurationSec) : reps} tone="reps" size="l" />
-        <Stat label="Durasi" value={formatMinSec(sessionDurationSec)} size="m" />
-        <Stat label="Form" value={formScore ?? null} unit={formScore !== undefined ? '%' : undefined} tone="form" />
-        <Stat label="Simetri" value={symmetryScore ?? null} unit={symmetryScore !== undefined ? '%' : undefined} tone="sym" />
-      </Card>
+      <div className="grid grid-cols-2 text-left">
+        <Card tone={1} className="sum-in col-span-2 p-5" style={stagger(0)}>
+          <Stat label={isTimer ? 'Waktu tahan' : 'Repetisi'} value={isTimer ? formatMinSec(holdDurationSec) : Math.round(reps * countP)} size="xl" />
+        </Card>
+        <Card tone={7} className="sum-in" style={stagger(1)}>
+          <Stat label="Form" value={formScore ?? null} unit={formScore !== undefined ? '%' : undefined} size="l" />
+        </Card>
+        <Card tone={8} className="sum-in" style={stagger(2)}>
+          <Stat label="Estimasi kalori*" value={kcal} unit="kkal" size="l" />
+        </Card>
+        <Card tone={5} className="sum-in" style={stagger(3)}>
+          <Stat label="Simetri" value={symmetryScore ?? null} unit={symmetryScore !== undefined ? '%' : undefined} size="l" />
+        </Card>
+        <Card tone={4} className="sum-in" style={stagger(4)}>
+          <Stat label="Durasi" value={formatMinSec(sessionDurationSec)} size="m" />
+        </Card>
+      </div>
 
       {cleanPct !== null && (
         <Card className="space-y-2 text-left">
-          <div className="flex h-2 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${cleanReps} rep bersih, ${reps - (cleanReps ?? 0)} perlu perbaikan`}>
+          <div className="flex h-2 overflow-hidden bg-surface-3" role="img" aria-label={`${cleanReps} rep bersih, ${reps - (cleanReps ?? 0)} perlu perbaikan`}>
             <div className="h-full bg-success" style={{ width: `${cleanPct}%` }} />
             <div className="h-full bg-danger" style={{ width: `${100 - cleanPct}%` }} />
           </div>
@@ -109,24 +140,23 @@ export function SessionSummary({
         </Card>
       )}
 
-      <Card className="flex items-center justify-between gap-4 text-left">
-        <Stat label="Estimasi kalori*" value={kcal} unit="kkal" tone="kcal" />
-        {tempoRatio && (
+      {tempoRatio && (
+        <Card className="flex items-center justify-between gap-4 text-left">
+          <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-2">Ritme tempo</p>
           <div className="text-right">
-            <p className="text-caption text-text-3">Ritme tempo</p>
             <p className="num text-subhead font-semibold text-text">{tempoRatio}</p>
             {avgTutSec !== undefined && <p className="num text-caption text-text-3">{avgTutSec.toFixed(1)} dtk per rep</p>}
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
       <p className="text-caption text-text-3">*Perkiraan, bukan ukuran medis.{pace && ` Kecepatan ${pace} rep per menit.`}</p>
 
       {/* Analisis form */}
       <Card className="space-y-3 text-left">
         <h3 className="text-headline text-text">Analisis form</h3>
         {faultsSummary.length === 0 ? (
-          <div className="flex items-start gap-3 rounded-md bg-success-soft p-3">
-            <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden="true" />
+          <div className="panel-7 flex items-start gap-3 p-3">
+            <CheckCircle2 className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
             <div>
               <p className="text-subhead font-semibold text-text">Form bersih</p>
               <p className="text-footnote text-text-2">Tidak ada kesalahan berarti yang terdeteksi di sesi ini.</p>
@@ -135,8 +165,8 @@ export function SessionSummary({
         ) : (
           <ul className="space-y-2">
             {faultsSummary.map((fault, i) => (
-              <li key={i} className="flex items-start gap-3 rounded-md bg-danger-soft p-3">
-                <AlertTriangle className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden="true" />
+              <li key={i} className="panel-6 flex items-start gap-3 p-3">
+                <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="text-subhead font-semibold text-text">
                     {fault.name} <span className="num text-text-2">({fault.count}x)</span>
@@ -147,11 +177,11 @@ export function SessionSummary({
             ))}
           </ul>
         )}
-        <div className="flex items-start gap-3 rounded-md bg-accent-soft p-3">
-          <Lightbulb className="mt-0.5 size-5 shrink-0 text-accent-text" aria-hidden="true" />
+        <div className="panel-8 flex items-start gap-3 p-3">
+          <Lightbulb className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
           <div>
-            <p className="text-subhead font-semibold text-accent-text">Saran pelatih</p>
-            <p className="text-footnote text-text">{coachTip}</p>
+            <p className="text-subhead font-semibold">Saran pelatih</p>
+            <p className="text-footnote">{coachTip}</p>
           </div>
         </div>
       </Card>

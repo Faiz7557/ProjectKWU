@@ -1,5 +1,6 @@
 import type { NormalizedLandmark } from '@/trackers/types';
 import { POSE_CONNECTIONS, PoseLandmark } from './landmarks';
+import { stage } from '@/lib/design/tokens';
 
 export interface DrawSkeletonOptions {
   boneColor?: string;
@@ -25,10 +26,10 @@ export function drawSkeleton(
 ): void {
   const {
     hasFault = false,
-    boneColor = hasFault ? 'rgba(255, 23, 68, 0.95)' : 'rgba(0, 230, 118, 0.85)',
-    jointColor = hasFault ? '#ff5252' : 'rgba(255, 255, 255, 0.95)',
-    accentColor = hasFault ? '#ff1744' : '#00e5ff',
-    lineWidth = hasFault ? 4 : 3,
+    boneColor = hasFault ? stage.boneFault : stage.bone,
+    jointColor = hasFault ? stage.boneFault : stage.joint,
+    accentColor = hasFault ? stage.boneFault : stage.labelText,
+    lineWidth = hasFault ? 3 * 1.5 : 3,
     jointRadius = hasFault ? 5 : 4,
     angles = {},
     showAngles = true,
@@ -45,7 +46,7 @@ export function drawSkeleton(
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   if (hasFault) {
-    ctx.shadowColor = 'rgba(255, 23, 68, 0.6)';
+    ctx.shadowColor = stage.boneFault;
     ctx.shadowBlur = 8;
   }
 
@@ -65,7 +66,7 @@ export function drawSkeleton(
   // 2. Gambar titik sendi (Joints)
   ctx.save();
   ctx.fillStyle = jointColor;
-  ctx.strokeStyle = hasFault ? '#ff1744' : boneColor;
+  ctx.strokeStyle = hasFault ? stage.boneFault : boneColor;
   ctx.lineWidth = 1.5;
 
   for (let i = 0; i < landmarks.length; i++) {
@@ -90,7 +91,7 @@ export function drawSkeleton(
     ctx.save();
     ctx.font = 'bold 12px monospace';
     ctx.fillStyle = accentColor;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowColor = stage.labelBg;
     ctx.shadowBlur = 4;
 
     const angleToLandmark: Record<string, number> = {
@@ -173,10 +174,10 @@ export function drawGhostSkeleton(
   }
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(192, 132, 252, 0.45)'; // Neon purple/violet ghost
+  ctx.strokeStyle = stage.ghost;
   ctx.lineWidth = 2.5;
   ctx.setLineDash([5, 5]); // Garis putus-putus
-  ctx.shadowColor = 'rgba(168, 85, 247, 0.4)';
+  ctx.shadowColor = stage.ghost;
   ctx.shadowBlur = 6;
 
   // Gambar sambungan tulang bayangan
@@ -207,7 +208,7 @@ export function drawGhostSkeleton(
 
   // Label penanda bayangan
   ctx.font = 'bold 11px sans-serif';
-  ctx.fillStyle = 'rgba(216, 180, 254, 0.7)';
+  ctx.fillStyle = stage.ghost;
   ctx.fillText('👻 Bayangan Ritme Ideal', 16, height - 16);
   ctx.restore();
 }
@@ -232,9 +233,9 @@ export function drawGestureIndicator(
   // Lingkaran latar belakang
   ctx.beginPath();
   ctx.arc(px, py, radius, 0, 2 * Math.PI);
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+  ctx.fillStyle = stage.material;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+  ctx.strokeStyle = stage.ghost;
   ctx.lineWidth = 3;
   ctx.stroke();
 
@@ -243,23 +244,23 @@ export function drawGestureIndicator(
   const startAngle = -Math.PI / 2;
   const endAngle = startAngle + progress * 2 * Math.PI;
   ctx.arc(px, py, radius, startAngle, endAngle);
-  ctx.strokeStyle = '#38bdf8';
+  ctx.strokeStyle = stage.focusJoint;
   ctx.lineWidth = 4;
-  ctx.shadowColor = '#38bdf8';
+  ctx.shadowColor = stage.focusJoint;
   ctx.shadowBlur = 10;
   ctx.stroke();
 
   // Label persentase di tengah
   ctx.font = 'bold 11px monospace';
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = stage.labelText;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(`${Math.round(progress * 100)}%`, px, py);
 
   // Label keterangan di atas
   ctx.font = 'bold 12px sans-serif';
-  ctx.fillStyle = '#38bdf8';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+  ctx.fillStyle = stage.focusJoint;
+  ctx.shadowColor = stage.labelBg;
   ctx.shadowBlur = 4;
   ctx.fillText(label, px, py - radius - 10);
 

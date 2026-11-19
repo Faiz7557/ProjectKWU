@@ -9,6 +9,7 @@ import { createTracker, ExerciseTracker } from '@/trackers';
 import type { FormFault } from '@/trackers/types';
 import { useCamera } from '@/hooks/useCamera';
 import { usePoseDetection } from '@/hooks/usePoseDetection';
+import { EXERCISE_PANEL } from '@/components/ui/ExerciseIcon';
 import { CameraFeed } from '@/components/camera/CameraFeed';
 import { EnvironmentCheck } from '@/components/camera/EnvironmentCheck';
 import { WorkoutHUD } from '@/components/workout/WorkoutHUD';
@@ -432,65 +433,64 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
   return (
     <div className="min-h-screen bg-canvas text-text p-4 md:p-8 flex flex-col justify-between">
       {/* Top Bar */}
-      <div className="max-w-4xl mx-auto w-full flex items-center justify-between mb-4">
+      <div className="max-w-4xl mx-auto w-full grid grid-cols-[1fr_auto_1fr] items-center mb-4">
         <Link
           href="/workout"
           onClick={() => stopCamera()}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-text-2 hover:text-text transition-colors"
+          className="inline-flex items-center gap-2 justify-self-start text-sm font-semibold text-text-2 hover:text-text transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           <span>Kembali</span>
         </Link>
 
         <div className="text-center">
-          <span className="text-xs font-bold text-accent-text tracking-normal block">
+          <span className="text-xs font-bold uppercase tracking-[0.06em] text-accent-text block">
             Program Sirkuit
           </span>
-          <h1 className="text-base font-bold text-text">{routine.name}</h1>
+          <h1 className="font-display text-base font-bold text-text">{routine.name}</h1>
         </div>
-
-        <div className="w-16" />
       </div>
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full space-y-4">
         {/* PHASE 1: OVERVIEW ROUTINE */}
         {phase === 'overview' && (
-          <div className="w-full max-w-lg bg-surface border border-separator rounded-lg p-6 md:p-8 space-y-6 shadow-2xl text-left animate-enter">
-            <div>
-              <span className="text-xs font-bold text-accent-text tracking-normal block mb-1">
+          <div className="w-full max-w-lg space-y-6 text-left animate-enter">
+            {/* blok teks terbalik, bukan oranye: langkah pertama sering push-up (panel-1) tepat di bawahnya */}
+            <div className="bg-text text-canvas p-6 md:p-8">
+              <span className="text-xs font-bold uppercase tracking-[0.06em] block mb-1">
                 {routine.level} &bull; ~{routine.estimatedMinutes} Menit
               </span>
-              <h2 className="text-2xl font-bold text-text">{routine.name}</h2>
-              <p className="text-xs text-text-2 mt-2 leading-relaxed">{routine.description}</p>
+              <h2 className="font-display text-2xl font-bold">{routine.name}</h2>
+              <p className="text-xs mt-2 leading-relaxed">{routine.description}</p>
             </div>
 
-            {/* List Steps */}
+            {/* List Steps: tangga panel berurutan */}
             <div className="space-y-3">
-              <span className="text-xs font-bold text-text-2 tracking-normal block">
+              <span className="text-xs font-bold text-text-2 block">
                 Urutan Sirkuit ({routine.steps.length} Gerakan)
               </span>
-              <div className="space-y-2">
+              <div data-tour="rt-steps">
                 {routine.steps.map((st: RoutineStep, i: number) => (
                   <div
                     key={i}
-                    className="p-3.5 rounded-md bg-surface-3 border border-separator flex items-center justify-between"
+                    className={`panel-${EXERCISE_PANEL[st.exerciseId] ?? 4} p-3.5 flex items-center justify-between`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-sm bg-accent-soft text-accent-text flex items-center justify-center text-xs font-bold num">
+                      <div className="w-7 h-7 bg-ink text-paper flex items-center justify-center font-display text-xs font-bold num">
                         {i + 1}
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-text block">
+                        <span className="text-xs font-bold block">
                           {st.exerciseName}
                         </span>
-                        <span className="text-xs text-text-2">
+                        <span className="text-xs">
                           {st.targetReps ? `${st.targetReps} repetisi` : `${st.targetDurationSec} detik`}
                         </span>
                       </div>
                     </div>
                     {st.restSecAfter > 0 && (
-                      <span className="text-xs font-medium text-text-2 bg-surface-3 px-2 py-0.5 rounded-xs">
+                      <span className="text-xs font-medium bg-ink text-paper px-2 py-0.5">
                         Istirahat {st.restSecAfter}s
                       </span>
                     )}
@@ -500,10 +500,11 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
             </div>
 
             <button
+              data-tour="rt-start"
               onClick={handleStartRoutine}
-              className="w-full py-4 rounded-md bg-accent hover:bg-accent hover: font-bold text-sm text-on-accent shadow-xl shadow-2 transition-all flex items-center justify-center gap-2"
+              className="pressable w-full py-4 bg-accent font-bold text-sm text-on-accent hover:bg-panel-8 hover:text-on-panel-8 flex items-center justify-center gap-2"
             >
-              <Play className="w-4 h-4 fill-white" />
+              <Play className="w-4 h-4 fill-current" aria-hidden="true" />
               <span>Mulai Sirkuit Sekarang</span>
             </button>
           </div>
@@ -511,7 +512,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
 
         {/* PHASE 2: ENV CHECK */}
         {phase === 'env-check' && currentTracker && (
-          <div className="w-full space-y-4">
+          <div className="w-full space-y-4 animate-enter">
             <CameraFeed
               videoRef={videoRef}
               canvasRef={canvasRef}
@@ -540,7 +541,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
 
         {/* PHASE 4: ACTIVE EXERCISE */}
         {phase === 'exercise' && currentTracker && (
-          <div className="w-full space-y-4">
+          <div className="w-full space-y-4 animate-enter">
             <CircuitProgress
               steps={routine.steps}
               currentStepIndex={stepIndex}

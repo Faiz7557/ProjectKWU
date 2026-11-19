@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ExerciseConfig, TrackingResult, BilateralSymmetry } from '@/trackers/types';
 import type { TempoState } from '@/lib/tempo/tempo-tracker';
 import type { GestureDetectionResult } from '@/lib/gestures/detector';
@@ -9,7 +9,6 @@ import { ACTIVE_STATES, stateLabel } from './state-labels';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Toggle } from '@/components/ui/Controls';
-import { Badge, ProgressRing } from '@/components/ui/Surfaces';
 import {
   AlertTriangle,
   BellRing,
@@ -85,11 +84,12 @@ export function WorkoutHUD({
 }: WorkoutHUDProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirm, setConfirm] = useState<'reset' | 'finish' | null>(null);
-  const repRef = useRef<HTMLSpanElement>(null);
-  const prevReps = useRef(0);
 
   const isTimer = config.type === 'timer';
   const reps = trackingResult?.repCount ?? 0;
+  // Rep saat HUD pertama tampil: tidak dianimasikan agar mount tetap diam.
+  const [mountReps] = useState(reps);
+  const tick = !isTimer && reps !== mountReps;
   const holdDuration = trackingResult?.holdDuration ?? 0;
   const currentVal = isTimer ? holdDuration : reps;
   const state = trackingResult?.state ?? 'idle';
@@ -99,20 +99,6 @@ export function WorkoutHUD({
   const gestureActive = !!gestureResult && gestureResult.activeGesture !== 'none';
 
   const targetProgress = targetValue && targetValue > 0 ? Math.min(100, Math.round((currentVal / targetValue) * 100)) : null;
-
-  // Denyut rep: scale 1 -> 1.12 -> 1 lewat WAAPI (native, tanpa menunggu re-render React).
-  // Bunyi beep dan haptic dipicu di handler sesi pada frame yang sama.
-  useEffect(() => {
-    if (isTimer) return;
-    if (reps === prevReps.current) return;
-    prevReps.current = reps;
-    const el = repRef.current;
-    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    el.animate(
-      [{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }],
-      { duration: 450, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
-    );
-  }, [reps, isTimer]);
 
   // Konfirmasi bila ada progres (rep atau waktu tahan plank) agar tidak hilang karena salah tekan.
   const requestReset = () => (currentVal > 0 ? setConfirm('reset') : onReset());
@@ -125,20 +111,21 @@ export function WorkoutHUD({
 
   // Tone feedback slot: fault (danger) > coaching (accent) > netral.
   const slotTone = fault
-    ? 'border-danger/30 bg-danger-soft text-danger'
+    ? 'panel-6'
     : feedback
-      ? 'border-accent-text/30 bg-accent-soft text-accent-text'
-      : 'border-separator bg-surface text-text-2';
+      ? 'panel-8'
+      : 'bg-surface text-text-2';
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 text-left">
       {/* Metrik utama: angka besar dan target */}
-      <section aria-label="Hasil latihan" className="rounded-xl bg-surface p-5 shadow-1">
+      <section aria-label="Hasil latihan" className="panel-1 relative isolate p-5">
+        {tick && <span key={`f${reps}`} aria-hidden="true" className="rep-flash pointer-events-none absolute inset-0 -z-10 bg-panel-8" />}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-subhead text-text-2">{isTimer ? 'Durasi tahan' : 'Repetisi'}</p>
+            <p className="text-caption font-semibold uppercase tracking-[0.06em]">{isTimer ? 'Durasi tahan' : 'Repetisi'}</p>
             <p className="mt-1 flex items-baseline gap-2">
-              <span ref={repRef} className="num inline-block origin-center text-metric-xl text-text">
+              <span key={isTimer ? 'timer' : reps} className={`num inline-block origin-center font-display text-metric-xl${tick ? ' rep-tick' : ''}`}>
                 {isTimer ? formatDuration(holdDuration) : reps}
               </span>
               {!isTimer && <span className="text-headline text-text-2">rep</span>}
@@ -146,19 +133,26 @@ export function WorkoutHUD({
           </div>
 
           <div className="flex shrink-0 flex-col items-end gap-2">
-            <Badge tone={ACTIVE_STATES.has(state) ? 'success' : 'accent'}>{stateLabel(state)}</Badge>
-            <IconButton label="Opsi latihan" icon={<SlidersHorizontal className="size-5" aria-hidden="true" />} onClick={() => setSheetOpen(true)} />
+            <span className={`px-2.5 py-1 text-caption font-semibold ${ACTIVE_STATES.has(state) ? 'bg-ink text-paper' : 'bg-paper text-ink'}`}>{stateLabel(state)}</span>
+            <IconButton label="Opsi latihan" className="text-ink hover:bg-ink/10 hover:text-ink" icon={<SlidersHorizontal className="size-5" aria-hidden="true" />} onClick={() => setSheetOpen(true)} />
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">
           {targetProgress !== null ? (
-            <div className="flex items-center gap-3">
-              <ProgressRing value={targetProgress / 100} size={64} stroke={7} tone="reps" label="Pencapaian target">
-                <span className="num text-subhead font-bold text-text">{targetProgress}%</span>
-              </ProgressRing>
-              <div className="text-footnote text-text-2">
-                Target {targetValue}
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div
+                role="progressbar"
+                aria-label="Pencapaian target"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={targetProgress}
+                className="h-2 w-32 shrink-0 bg-ink/20"
+              >
+                <div className="h-full origin-left bg-ink" style={{ transform: `scaleX(${targetProgress / 100})` }} />
+              </div>
+              <div className="num text-footnote font-semibold">
+                {targetProgress}% · Target {targetValue}
                 {isTimer ? ' detik' : ' rep'}
               </div>
             </div>
@@ -166,15 +160,16 @@ export function WorkoutHUD({
             <span />
           )}
           {gestureActive && (
-            <Badge tone="accent" icon={<Hand className="size-3.5" />}>
+            <span className="inline-flex items-center gap-1.5 bg-ink px-2.5 py-1 text-caption font-semibold text-paper">
+              <Hand className="size-3.5" aria-hidden="true" />
               {gestureResult?.label || 'Gestur'} {gesturePct}%
-            </Badge>
+            </span>
           )}
         </div>
       </section>
 
       {/* Slot umpan balik: tinggi tetap agar layout tidak bergeser (UI_UX_BRIEF §2.4 #17) */}
-      <div role="status" aria-live="polite" className={`flex min-h-16 items-center gap-3 rounded-md border px-4 py-3 text-callout transition-colors duration-200 ${slotTone}`}>
+      <div role="status" aria-live="polite" className={`flex min-h-16 items-center gap-3 px-4 py-3 text-callout transition-colors duration-200 ${slotTone}`}>
         {fault ? (
           <>
             <AlertTriangle className="size-5 shrink-0" aria-hidden="true" />
@@ -223,7 +218,7 @@ export function WorkoutHUD({
             Jeda
           </Button>
         ) : (
-          <Button size="xl" onClick={onTogglePause} icon={<Play className="size-5" aria-hidden="true" />} className="w-full bg-success px-2 text-on-success">
+          <Button size="xl" onClick={onTogglePause} icon={<Play className="size-5" aria-hidden="true" />} className="w-full bg-panel-7 px-2 text-on-panel-7 hover:bg-panel-7 hover:text-on-panel-7">
             Lanjut
           </Button>
         )}

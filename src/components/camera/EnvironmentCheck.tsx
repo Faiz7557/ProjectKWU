@@ -18,20 +18,21 @@ type CheckState = 'ok' | 'warn' | 'pending';
 
 // Satu baris checklist: ikon status + judul + detail (UI_UX_BRIEF §7.3, checklist ala iOS).
 function CheckRow({ state, icon: Icon, title, detail }: { state: CheckState; icon: React.ComponentType<{ className?: string }>; title: string; detail: string }) {
-  const tone = state === 'ok' ? 'text-success' : state === 'warn' ? 'text-warning' : 'text-text-2';
+  // Ikon di atas chip ink: pakai warna terang yang tetap kontras di kedua tema (bukan token teks tema/panel).
+  const tone = state === 'ok' ? 'text-panel-7' : state === 'warn' ? 'text-panel-8' : 'text-paper';
   return (
-    <li className="flex items-start gap-3 rounded-md bg-surface-3 p-3.5">
-      <span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-canvas ${tone}`} aria-hidden="true">
+    <li className="flex items-start gap-3 bg-paper p-3.5 text-ink">
+      <span className={`mt-0.5 grid size-8 shrink-0 place-items-center bg-ink ${tone}`} aria-hidden="true">
         <Icon className="size-4" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-headline text-text">{title}</p>
-        <p className="text-footnote text-text-2">{detail}</p>
+        <p className="text-headline">{title}</p>
+        <p className="text-footnote">{detail}</p>
       </div>
       <span className="mt-1 shrink-0" aria-hidden="true">
-        {state === 'ok' && <CheckCircle2 className="size-5 text-success" />}
-        {state === 'warn' && <TriangleAlert className="size-5 text-warning" />}
-        {state === 'pending' && <RefreshCw className="size-5 animate-spin text-accent-text" />}
+        {state === 'ok' && <CheckCircle2 className="size-5" />}
+        {state === 'warn' && <TriangleAlert className="size-5" />}
+        {state === 'pending' && <RefreshCw className="size-5 animate-spin" />}
       </span>
     </li>
   );
@@ -144,11 +145,11 @@ export function EnvironmentCheck({ config, videoRef, trackingResult, onPassed, o
           : 'Menganalisis kecerahan video...';
 
   return (
-    <Card className="mx-auto max-w-xl space-y-6 p-5 sm:p-6">
+    <Card tone={4} className="mx-auto max-w-xl space-y-6 p-5 sm:p-6">
       <header className="space-y-1.5 text-center">
-        <p className="text-caption font-semibold uppercase tracking-wide text-accent-text">Pemeriksaan kesiapan</p>
-        <h2 className="text-title-2 text-text">Posisi kamu sudah pas?</h2>
-        <p className="text-callout text-text-2">Cek ini memastikan tubuh kamu terlihat jelas sebelum latihan mulai.</p>
+        <p className="text-caption font-semibold uppercase tracking-[0.06em]">Pemeriksaan kesiapan</p>
+        <h2 className="font-display text-title-2">Posisi kamu sudah pas?</h2>
+        <p className="text-callout">Cek ini memastikan tubuh kamu terlihat jelas sebelum latihan mulai.</p>
       </header>
 
       <ul className="space-y-2.5">
@@ -172,7 +173,7 @@ export function EnvironmentCheck({ config, videoRef, trackingResult, onPassed, o
       </ul>
 
       {readySeconds !== null && (
-        <p role="status" className="rounded-md bg-success-soft p-3 text-center text-subhead font-semibold text-success">
+        <p role="status" className="bg-panel-7 p-3 text-center text-subhead font-semibold text-on-panel-7">
           Posisi pas. Mulai otomatis dalam {readySeconds} detik.
         </p>
       )}

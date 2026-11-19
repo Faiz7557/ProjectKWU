@@ -69,6 +69,7 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [gamification, setGamification] = useState<UserGamificationState | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [newBadges, setNewBadges] = useState<string[]>([]);
 
   // Muat data dari localStorage dan API backend
   useEffect(() => {
@@ -83,7 +84,17 @@ export default function HistoryPage() {
         // Abaikan data rusak; tampilkan kosong
       }
 
-      setGamification(getGamificationState());
+      const gam = getGamificationState();
+      setGamification(gam);
+      // Lencana yang terbuka sejak kunjungan terakhir saja yang pop (dibaca di efek, aman hidrasi).
+      try {
+        const unlocked = gam.unlockedAchievementIds;
+        const seen: string[] = JSON.parse(localStorage.getItem('sf-seen-badges') ?? '[]');
+        setNewBadges(unlocked.filter((id) => !seen.includes(id)));
+        localStorage.setItem('sf-seen-badges', JSON.stringify(unlocked));
+      } catch {
+        // Tanpa storage: halaman tetap tampil, tanpa animasi
+      }
 
       // Gabungkan dengan API bila tersedia; jika gagal, tetap pakai data lokal
       try {
@@ -160,30 +171,30 @@ export default function HistoryPage() {
         {/* Streak & level */}
         {gamification && (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Card className="space-y-3">
+            <Card tone={8} data-tour="hs-streak" className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-subhead font-semibold text-data-streak">
+                <p className="flex items-center gap-2 text-caption font-semibold uppercase tracking-[0.06em]">
                   <Flame className="size-4" aria-hidden="true" /> Streak harian
                 </p>
-                <span className="text-caption text-text-2">Terpanjang {gamification.streak.longest} hari</span>
+                <span className="text-caption text-text">Terpanjang {gamification.streak.longest} hari</span>
               </div>
               <p className="flex items-baseline gap-2">
-                <span className="num text-metric-l text-data-streak">{gamification.streak.current}</span>
-                <span className="text-headline text-text">hari berturut-turut</span>
+                <span className="num font-display text-metric-l text-text">{gamification.streak.current}</span>
+                <span className="font-display text-headline text-text">hari berturut-turut</span>
               </p>
               <p className="text-footnote text-text-2">{streakMessage}</p>
             </Card>
 
-            <Card className="space-y-3">
+            <Card tone={3} data-tour="hs-level" className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-subhead font-semibold text-data-xp">
+                <p className="flex items-center gap-2 text-caption font-semibold uppercase tracking-[0.06em]">
                   <Sparkles className="size-4" aria-hidden="true" /> Level dan XP
                 </p>
-                <span className="num text-caption text-text-2">{gamification.totalXp} XP</span>
+                <span className="num text-caption text-text">{gamification.totalXp} XP</span>
               </div>
               <p className="flex items-baseline gap-2">
-                <span className="num text-metric-l text-data-xp">Lv. {gamification.level}</span>
-                <span className="text-headline text-text">{gamification.levelName}</span>
+                <span className="num font-display text-metric-l text-text">Lv. {gamification.level}</span>
+                <span className="font-display text-headline text-text">{gamification.levelName}</span>
               </p>
               {levelInfo && (
                 <div className="space-y-1.5 pt-1">
@@ -191,7 +202,7 @@ export default function HistoryPage() {
                     <span>Menuju level {gamification.level + 1}</span>
                     <span className="num font-semibold text-text">{xpProgress}%</span>
                   </div>
-                  <ProgressBar value={xpProgress / 100} tone="xp" label={`Progres ke level ${gamification.level + 1}`} />
+                  <ProgressBar value={xpProgress / 100} tone="accent" label={`Progres ke level ${gamification.level + 1}`} />
                 </div>
               )}
             </Card>
@@ -200,8 +211,8 @@ export default function HistoryPage() {
 
         {/* Pencapaian */}
         {gamification && (
-          <Card className="space-y-4">
-            <h2 className="flex items-center gap-2 text-headline text-text">
+          <Card data-tour="hs-badges" className="space-y-4">
+            <h2 className="flex items-center gap-2 font-display text-title-3 text-text">
               <Trophy className="size-5 text-data-streak" aria-hidden="true" />
               Pencapaian ({gamification.unlockedAchievementIds.length}/{ALL_ACHIEVEMENTS.length})
             </h2>
@@ -211,17 +222,17 @@ export default function HistoryPage() {
                 return (
                   <li
                     key={ach.id}
-                    className={`flex flex-col justify-between gap-3 rounded-md p-3.5 ${unlocked ? 'bg-surface-3' : 'bg-surface-3/60'}`}
+                    className={`flex flex-col justify-between gap-3 p-3.5 ${unlocked ? 'panel-8' : 'bg-surface-3'}${unlocked && newBadges.includes(ach.id) ? ' animate-pop' : ''}`}
                   >
                     <div className="space-y-1">
-                      <span className={`grid size-9 place-items-center rounded-full ${unlocked ? 'bg-warning-soft text-data-streak' : 'bg-surface text-text-3'}`} aria-hidden="true">
+                      <span className={`grid size-9 place-items-center ${unlocked ? 'bg-ink text-paper' : 'bg-surface text-text-3'}`} aria-hidden="true">
                         {unlocked ? <Award className="size-5" /> : <Lock className="size-4" />}
                       </span>
                       <h3 className={`line-clamp-1 text-subhead font-semibold ${unlocked ? 'text-text' : 'text-text-2'}`}>{ach.name}</h3>
                       <p className="line-clamp-2 text-caption leading-snug text-text-2">{ach.description}</p>
                     </div>
                     {unlocked ? (
-                      <span className="flex items-center gap-1 text-caption font-semibold text-success">
+                      <span className="flex items-center gap-1 text-caption font-semibold text-text">
                         <CheckCircle2 className="size-3.5" aria-hidden="true" />
                         <span>+{ach.xpReward} XP</span>
                       </span>
@@ -239,13 +250,13 @@ export default function HistoryPage() {
         )}
 
         {/* Ringkasan */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Card><Stat label="Total rep" value={totalReps} tone="reps" icon={Target} /></Card>
-          <Card><Stat label="Total durasi" value={Math.round(totalSeconds / 60)} unit="mnt" icon={Clock} /></Card>
-          <Card><Stat label="Kalori" value={totalCalories} unit="kkal" tone="kcal" icon={Flame} /></Card>
-          <Card>
-            <Stat label="Rata-rata form" value={avgFormScore} unit={avgFormScore !== null ? '%' : undefined} tone="form" />
-            {avgFormScore !== null && <p className="mt-1 text-caption text-text-3">Dari {scored.length} sesi</p>}
+        <div data-tour="hs-stats" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card tone={4}><Stat label="Total rep" value={totalReps} icon={Target} /></Card>
+          <Card tone={4}><Stat label="Total durasi" value={Math.round(totalSeconds / 60)} unit="mnt" icon={Clock} /></Card>
+          <Card tone={4}><Stat label="Kalori" value={totalCalories} unit="kkal" icon={Flame} /></Card>
+          <Card tone={4}>
+            <Stat label="Rata-rata form" value={avgFormScore} unit={avgFormScore !== null ? '%' : undefined} />
+            {avgFormScore !== null && <p className="mt-1 text-caption text-text">Dari {scored.length} sesi</p>}
           </Card>
         </div>
 
@@ -257,7 +268,7 @@ export default function HistoryPage() {
               pressed={selectedFilter === f.id}
               onPressedChange={() => setSelectedFilter(f.id)}
               label={f.label}
-              className="shrink-0 rounded-full"
+              className="shrink-0"
             />
           ))}
         </div>
@@ -269,10 +280,10 @@ export default function HistoryPage() {
           </p>
         ) : filteredSessions.length === 0 ? (
           <Card className="space-y-4 p-8 text-center">
-            <span className="mx-auto grid size-14 place-items-center rounded-full bg-surface-3 text-text-3">
+            <span className="mx-auto grid size-14 place-items-center bg-surface-3 text-text-3">
               <Calendar className="size-7" aria-hidden="true" />
             </span>
-            <h2 className="text-title-3 text-text">Belum ada sesi tercatat</h2>
+            <h2 className="font-display text-title-3 text-text">Belum ada sesi tercatat</h2>
             <p className="mx-auto max-w-sm text-callout text-text-2">
               Selesaikan satu sesi latihan untuk mulai melihat progres dan membuka lencana.
             </p>
@@ -294,7 +305,7 @@ export default function HistoryPage() {
                       <ExerciseIcon exercise={session.exercise} />
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-headline text-text">{name}</span>
+                          <span className="font-display text-headline text-text">{name}</span>
                           {typeof session.formScore === 'number' && <Badge tone="form">{session.formScore}% form</Badge>}
                         </div>
                         <p className="flex items-center gap-1.5 text-footnote text-text-2">
@@ -304,7 +315,7 @@ export default function HistoryPage() {
                         {faults.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 pt-1">
                             {faults.slice(0, 2).map((f, i) => (
-                              <Badge key={i} tone="danger" icon={<TriangleAlert className="size-3" />}>
+                              <Badge key={i} tone="danger" icon={<TriangleAlert className="size-3" aria-hidden="true" />}>
                                 {f.name} ({f.count}x)
                               </Badge>
                             ))}
@@ -317,7 +328,7 @@ export default function HistoryPage() {
                     <dl className="grid grid-cols-3 gap-4 sm:flex sm:gap-6">
                       <div className="text-right">
                         <dt className="text-caption text-text-3">{isPlank ? 'Waktu hold' : 'Repetisi'}</dt>
-                        <dd className="num text-title-3 text-text">{isPlank ? formatMinSec(session.holdDurationSec ?? 0) : `${session.reps ?? 0}`}</dd>
+                        <dd className="num font-display text-title-3 text-text">{isPlank ? formatMinSec(session.holdDurationSec ?? 0) : `${session.reps ?? 0}`}</dd>
                       </div>
                       <div className="text-right">
                         <dt className="text-caption text-text-3">Durasi</dt>
@@ -325,7 +336,7 @@ export default function HistoryPage() {
                       </div>
                       <div className="text-right">
                         <dt className="text-caption text-text-3">Kalori</dt>
-                        <dd className="num text-subhead text-data-kcal">~{kcal} kkal</dd>
+                        <dd className="num text-subhead text-text-2">~{kcal} kkal</dd>
                       </div>
                     </dl>
                   </Card>

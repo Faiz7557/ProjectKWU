@@ -40,17 +40,17 @@ export function CountdownOverlay({ seconds = 5, onComplete }: CountdownOverlayPr
   }, [count]);
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-5 rounded-xl bg-canvas/80 p-4 text-center backdrop-blur-md animate-enter">
-      <p className="text-subhead font-semibold text-accent-text">Bersiap di posisi</p>
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-5 bg-ink p-4 text-center text-paper animate-enter">
+      <p className="text-caption font-semibold uppercase tracking-[0.06em]">Bersiap di posisi</p>
 
       {/* Angka countdown: animasi pop per hitungan (ketukan ritmis), tanpa loop */}
-      <span key={count} className="num grid size-36 place-items-center rounded-full bg-accent text-metric-l text-on-accent animate-pop">
+      <span key={count} className="num panel-1 grid size-36 place-items-center font-display text-metric-l animate-pop">
         {count > 0 ? count : 'Mulai'}
       </span>
 
-      <p className="max-w-xs text-callout text-text-2">Mundur 1,5 sampai 2 meter dari kamera agar seluruh tubuh terlihat.</p>
+      <p className="max-w-xs text-callout">Mundur 1,5 sampai 2 meter dari kamera agar seluruh tubuh terlihat.</p>
 
-      <Button variant="tertiary" size="md" onClick={() => onCompleteRef.current()} icon={<FastForward className="size-4" aria-hidden="true" />}>
+      <Button variant="tertiary" size="md" className="text-paper" onClick={() => onCompleteRef.current()} icon={<FastForward className="size-4" aria-hidden="true" />}>
         Lewati hitungan
       </Button>
     </div>

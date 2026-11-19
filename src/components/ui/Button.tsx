@@ -7,13 +7,13 @@ export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'destructive'
 export type ButtonSize = 'md' | 'lg' | 'xl';
 
 const base =
-  'pressable inline-flex items-center justify-center gap-2 rounded-md font-semibold select-none whitespace-nowrap ' +
+  'pressable inline-flex items-center justify-center gap-2 font-semibold select-none whitespace-nowrap ' +
   'disabled:opacity-40 disabled:pointer-events-none';
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-on-accent',
-  secondary: 'bg-surface-3 text-text',
-  tertiary: 'bg-transparent text-accent-text',
+  primary: 'bg-accent text-on-accent hover:bg-panel-8 hover:text-on-panel-8',
+  secondary: 'bg-text text-canvas',
+  tertiary: 'bg-transparent text-text underline decoration-2 underline-offset-[6px]',
   destructive: 'bg-danger text-on-danger',
 };
 
@@ -87,7 +87,7 @@ export function IconButton({ label, icon, size = 'md', variant = 'ghost', classN
       aria-label={label}
       title={label}
       className={cn(
-        'pressable inline-flex items-center justify-center rounded-full text-text-2 hover:text-text',
+        'pressable inline-flex items-center justify-center text-text-2 hover:text-text',
         'disabled:opacity-40 disabled:pointer-events-none',
         size === 'md' ? 'size-11' : 'size-14',
         variant === 'filled' ? 'bg-surface-3 hover:bg-surface-2' : 'hover:bg-surface-3',

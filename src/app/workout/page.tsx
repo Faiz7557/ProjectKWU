@@ -10,7 +10,7 @@ import { TopBar } from '@/components/ui/Nav';
 import { Button, IconButton } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/Controls';
 import { Card, Badge } from '@/components/ui/Surfaces';
-import { ExerciseIcon } from '@/components/ui/ExerciseIcon';
+import { ExerciseIcon, EXERCISE_PANEL } from '@/components/ui/ExerciseIcon';
 import { Dialog } from '@/components/ui/Dialog';
 import { toast } from '@/components/ui/Toast';
 import { ArrowRight, Clock, Layers, Plus, Target, Trash2, Dumbbell } from 'lucide-react';
@@ -64,6 +64,7 @@ export default function WorkoutSelectorPage() {
       <TopBar title="Latihan" back={{ href: '/', label: 'Beranda' }} />
 
       <div className="mx-auto max-w-4xl space-y-6 px-4 pt-6 sm:px-6">
+        <div data-tour="wk-tabs">
         <SegmentedControl<Tab>
           label="Jenis latihan"
           value={tab}
@@ -77,39 +78,46 @@ export default function WorkoutSelectorPage() {
             },
           ]}
         />
+        </div>
 
         {tab === 'single' && (
           <ul className="grid animate-enter grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {exercises.map((ex) => {
+            {exercises.map((ex, idx) => {
               const prog = progressions[ex.id];
               const isTimer = ex.type === 'timer';
               const isFront = ex.cameraOrientation === 'front';
               return (
-                <li key={ex.id}>
+                <li key={ex.id} data-tour={idx === 0 ? 'wk-card' : undefined}>
                   <Link
                     href={`/workout/${ex.id}`}
-                    className="pressable group flex h-full flex-col justify-between gap-5 rounded-lg bg-surface p-5 shadow-1 hover:bg-surface-2"
+                    className={`pressable group relative flex h-full flex-col justify-between gap-5 overflow-hidden p-5 panel-${EXERCISE_PANEL[ex.id] ?? 4}`}
                   >
-                    <div className="space-y-3">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 bg-text/10 [clip-path:inset(100%_0_0_100%)] transition-[clip-path] duration-200 ease-[var(--ease-out-soft)] motion-reduce:transition-none pointer-fine:group-hover:[clip-path:inset(0)]"
+                    />
+                    <div className="relative z-10 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <ExerciseIcon exercise={ex.id} />
                         {prog && (
-                          <Badge tone={prog.difficulty === 'challenge' ? 'warning' : prog.difficulty === 'easy' ? 'success' : 'neutral'}>
+                          <Badge tone="neutral" className="border border-current bg-transparent text-text">
                             {DIFFICULTY_LABEL[prog.difficulty] ?? prog.difficulty}
                           </Badge>
                         )}
                       </div>
-                      <h2 className="text-title-3 text-text">{ex.name}</h2>
+                      <h2 className="font-display text-title-2 text-text">{ex.name}</h2>
                       {prog && (
-                        <Badge tone="accent" icon={<Target className="size-3.5" />}>
-                          Target {prog.suggestedTarget} {isTimer ? 'detik' : 'rep'}
-                        </Badge>
+                        <span data-tour={idx === 0 ? 'wk-target' : undefined} className="inline-flex">
+                          <Badge tone="neutral" className="border border-current bg-transparent text-text" icon={<Target className="size-3.5" aria-hidden="true" />}>
+                            Target {prog.suggestedTarget} {isTimer ? 'detik' : 'rep'}
+                          </Badge>
+                        </span>
                       )}
                       <p className="line-clamp-2 text-callout text-text-2">{prog?.coachTip || ex.instructions[0]}</p>
                     </div>
-                    <div className="flex items-center justify-between border-t border-separator pt-4">
+                    <div className="relative z-10 flex items-center justify-between border-t border-separator pt-4">
                       <span className="text-footnote text-text-2">Kamera {isFront ? 'depan' : 'samping'}</span>
-                      <span className="grid size-9 place-items-center rounded-full bg-surface-3 text-text transition-colors group-hover:bg-accent group-hover:text-on-accent">
+                      <span className="grid size-9 place-items-center border border-current text-text">
                         <ArrowRight className="size-4" aria-hidden="true" />
                       </span>
                     </div>
@@ -124,7 +132,7 @@ export default function WorkoutSelectorPage() {
           <div className="animate-enter space-y-5">
             <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <h2 className="text-headline text-text">Program sirkuit</h2>
+                <h2 className="font-display text-title-3 text-text">Program sirkuit</h2>
                 <p className="mt-1 text-footnote text-text-2">Jalankan program dengan jeda otomatis, atau buat versi kamu sendiri.</p>
               </div>
               <Button variant="secondary" onClick={() => setBuilderOpen(true)} icon={<Plus className="size-4" aria-hidden="true" />} className="shrink-0 self-start sm:self-auto">
@@ -135,23 +143,23 @@ export default function WorkoutSelectorPage() {
             {routines === null ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3" aria-label="Memuat program">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-48 animate-pulse rounded-lg bg-surface-3" />
+                  <div key={i} className="h-48 animate-pulse bg-surface-3" />
                 ))}
               </div>
             ) : (
               <ul className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {routines.map((routine) => {
+                {routines.map((routine, rIdx) => {
                   const isCustom = routine.id.startsWith('custom-');
                   return (
                     <li key={routine.id}>
-                      <Card className="flex h-full flex-col justify-between gap-5">
+                      <Card tone={rIdx % 2 === 0 ? 4 : 5} className="flex h-full flex-col justify-between gap-5">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge tone={routine.level === 'Pemula' ? 'success' : routine.level === 'Menengah' ? 'accent' : 'xp'}>
+                              <Badge tone="neutral" className="border border-current bg-transparent text-text uppercase tracking-[0.06em]">
                                 {routine.level}
                               </Badge>
-                              {isCustom && <Badge tone="warning">Kustom</Badge>}
+                              {isCustom && <Badge tone="neutral" className="border border-current bg-transparent text-text">Kustom</Badge>}
                             </div>
                             <div className="flex items-center gap-1">
                               <span className="num flex items-center gap-1 text-footnote text-text-2">
@@ -162,11 +170,11 @@ export default function WorkoutSelectorPage() {
                               )}
                             </div>
                           </div>
-                          <h3 className="text-title-3 text-text">{routine.name}</h3>
+                          <h3 className="font-display text-title-2 text-text">{routine.name}</h3>
                           <p className="text-callout text-text-2">{routine.description}</p>
-                          <ol className="space-y-1.5">
+                          <ol className="divide-y divide-separator">
                             {routine.steps.slice(0, 3).map((st: RoutineStep, i: number) => (
-                              <li key={i} className="flex items-center justify-between gap-3 rounded-sm bg-surface-3 px-3 py-2 text-footnote">
+                              <li key={i} className="flex items-center justify-between gap-3 py-2 text-footnote">
                                 <span className="truncate text-text-2">
                                   {i + 1}. {st.exerciseName}
                                 </span>
@@ -176,7 +184,7 @@ export default function WorkoutSelectorPage() {
                               </li>
                             ))}
                             {routine.steps.length > 3 && (
-                              <li className="px-1 text-footnote text-text-3">+{routine.steps.length - 3} langkah lagi</li>
+                              <li className="pt-2 text-footnote text-text-2">+{routine.steps.length - 3} langkah lagi</li>
                             )}
                           </ol>
                         </div>
@@ -193,7 +201,7 @@ export default function WorkoutSelectorPage() {
         )}
 
         <nav aria-label="Tautan lain" className="flex items-center justify-center gap-4 pt-2 text-footnote">
-          <Link href="/history" className="pressable inline-flex min-h-11 items-center font-medium text-accent-text">
+          <Link href="/history" data-tour="wk-history" className="pressable inline-flex min-h-11 items-center font-medium text-accent-text">
             Lihat riwayat dan progres
           </Link>
         </nav>

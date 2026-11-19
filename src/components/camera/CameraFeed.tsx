@@ -23,7 +23,7 @@ export function CameraFeed({
   onToggleFacingMode,
 }: CameraFeedProps) {
   return (
-    <div className="relative w-full aspect-[4/3] max-w-2xl mx-auto rounded-lg overflow-hidden bg-canvas border border-separator shadow-2xl">
+    <div className="relative w-full aspect-[4/3] max-w-2xl mx-auto overflow-hidden bg-ink">
       {/* Video Element dari Kamera Browser (WebRTC) */}
       <video
         ref={videoRef}
@@ -42,15 +42,15 @@ export function CameraFeed({
       {/* Status Overlay di Pojok Kiri Atas */}
       <div className="absolute top-4 left-4 flex items-center gap-2">
         {status === 'active' ? (
-          <div className="flex items-center gap-2 bg-surface backdrop-blur-md border border-border-strong px-3 py-1.5 rounded-full text-xs font-semibold text-text shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-danger" />
+          <div className="flex items-center gap-2 bg-paper px-3 py-1.5 text-xs font-semibold text-ink">
+            <span className="w-2 h-2 bg-danger" />
             <span>LIVE</span>
-            <span className="text-text-2">|</span>
-            <span className="text-success num">{fps} FPS</span>
+            <span aria-hidden="true">|</span>
+            <span className="num">{fps} FPS</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 bg-surface backdrop-blur-md border border-border-strong px-3 py-1.5 rounded-full text-xs font-semibold text-warning shadow-lg">
-            <Camera className="w-3.5 h-3.5 animate-spin" />
+          <div className="flex items-center gap-2 bg-panel-8 px-3 py-1.5 text-xs font-semibold text-on-panel-8">
+            <Camera className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
             <span>Memulai Kamera...</span>
           </div>
         )}
@@ -58,13 +58,11 @@ export function CameraFeed({
         {/* Lock-on / Tracking Badge */}
         {status === 'active' && (
           <div
-            className={`flex items-center gap-1.5 backdrop-blur-md border px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg transition-colors ${
-              isTracking
-                ? 'bg-success-soft border-success/30 text-success'
-                : 'bg-warning-soft border-warning/30 text-warning'
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
+              isTracking ? 'bg-panel-7 text-on-panel-7' : 'bg-panel-8 text-on-panel-8'
             }`}
           >
-            <Activity className="w-3.5 h-3.5" />
+            <Activity className="w-3.5 h-3.5" aria-hidden="true" />
             <span>{isTracking ? 'Subjek Terkunci' : 'Mencari Tubuh...'}</span>
           </div>
         )}
@@ -78,19 +76,19 @@ export function CameraFeed({
             onClick={onToggleFacingMode}
             title="Balik kamera (depan/belakang)"
             aria-label="Balik kamera"
-            className="p-2.5 rounded-full bg-surface hover:bg-surface-3 backdrop-blur-md border border-border-strong text-text-2 hover:text-text transition-all shadow-lg"
+            className="p-2.5 bg-paper text-ink transition-colors hover:bg-panel-1"
           >
-            <SwitchCamera className="w-4 h-4" />
+            <SwitchCamera className="w-4 h-4" aria-hidden="true" />
           </button>
         )}
       </div>
 
       {/* Placeholder jika kamera belum aktif */}
       {status !== 'active' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-canvas backdrop-blur-sm text-text-2">
-          <Camera className="w-12 h-12 mb-3 text-text-3" />
-          <p className="text-headline font-semibold text-text-2">Menghubungkan ke kamera...</p>
-          <p className="mt-1 max-w-xs text-footnote text-text-3">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-ink text-paper">
+          <Camera className="w-12 h-12 mb-3" aria-hidden="true" />
+          <p className="text-headline font-semibold">Menghubungkan ke kamera...</p>
+          <p className="mt-1 max-w-xs text-footnote">
             Pastikan memberikan izin saat browser meminta akses kamera kamu.
           </p>
         </div>

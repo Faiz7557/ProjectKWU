@@ -444,24 +444,23 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
   return (
     <div className="min-h-screen bg-canvas text-text p-4 md:p-8 flex flex-col justify-between">
       {/* Top Bar Navigation */}
-      <div className="max-w-4xl mx-auto w-full flex items-center justify-between mb-6">
+      <div className="max-w-4xl mx-auto w-full grid grid-cols-[1fr_auto_1fr] items-center mb-6">
         <Link
           href="/workout"
           onClick={() => stopCamera()}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-text-2 hover:text-text transition-colors"
+          className="inline-flex items-center gap-2 justify-self-start text-sm font-semibold text-text-2 hover:text-text transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           <span>Kembali</span>
         </Link>
 
         <div className="text-center">
-          <span className="text-xs font-bold text-accent-text tracking-normal block">
+          <span className="text-xs font-bold uppercase tracking-[0.06em] text-accent-text block">
             Latihan
           </span>
-          <h1 className="text-lg font-bold text-text">{tracker.config.name}</h1>
+          <h1 className="font-display text-lg font-bold text-text">{tracker.config.name}</h1>
         </div>
 
-        <div className="w-16" /> {/* Spacer untuk balance centering */}
       </div>
 
       {/* Main Content Area Berdasarkan Phase */}
@@ -473,7 +472,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
 
         {/* FASE 2: Pemeriksaan Lingkungan & Kesiapan AI (Env Check) */}
         {sessionPhase === 'env-check' && (
-          <div className="w-full space-y-6">
+          <div className="w-full space-y-6 animate-enter">
             <CameraFeed
               videoRef={videoRef}
               canvasRef={canvasRef}
@@ -502,11 +501,11 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
 
         {/* FASE 4: Active Workout Flow */}
         {sessionPhase === 'active' && (
-          <div className="w-full space-y-6">
+          <div className="w-full space-y-6 animate-enter">
             {/* Error handling jika kamera ditolak / model gagal */}
             {(cameraError || modelError) && (
               <div className="bg-danger-soft border border-danger/30 rounded-md p-4 flex items-center gap-3 text-sm text-danger max-w-2xl mx-auto">
-                <AlertCircle className="w-5 h-5 shrink-0" />
+                <AlertCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
                 <span>{cameraError || modelError}</span>
               </div>
             )}
@@ -567,7 +566,8 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
           title="Contoh form"
           description="Ikuti gerakan ini. Latihan lanjut setelah dialog ditutup."
         >
-          <ReferencePoseVisualizer exerciseId={tracker.config.id} autoPlayDefault={true} />
+          {/* <dialog> native tetap me-mount isi saat tertutup; unmount agar scene 3D tidak hidup saat inferensi lanjut */}
+          {showReferenceModal && <ReferencePoseVisualizer exerciseId={tracker.config.id} autoPlayDefault={true} />}
           <Button
             className="mt-5 w-full"
             onClick={() => {

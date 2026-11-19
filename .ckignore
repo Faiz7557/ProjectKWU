@@ -1,0 +1,2 @@
+# Izinkan agen membaca dokumentasi Next.js bawaan (wajib menurut AGENTS.md).
+!**/node_modules/next/dist/docs/**

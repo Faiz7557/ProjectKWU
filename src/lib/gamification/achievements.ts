@@ -4,7 +4,7 @@ export const ALL_ACHIEVEMENTS: Achievement[] = [
   {
     id: 'first_workout',
     name: 'Langkah Pertama',
-    description: 'Selesaikan sesi latihan pertama Anda di SMART-FIT',
+    description: 'Selesaikan sesi latihan pertamamu di SMART-FIT',
     tier: 'bronze',
     icon: '🎯',
     xpReward: 50,

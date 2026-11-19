@@ -2,15 +2,19 @@ import type { ComponentType, HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 // ---------- Card ----------
+const PANEL_CLASS = { 1: 'panel-1', 2: 'panel-2', 3: 'panel-3', 4: 'panel-4', 5: 'panel-5', 6: 'panel-6', 7: 'panel-7', 8: 'panel-8' } as const;
+
 export function Card({
   interactive = false,
+  tone,
   className,
   ...rest
-}: HTMLAttributes<HTMLDivElement> & { interactive?: boolean }) {
+}: HTMLAttributes<HTMLDivElement> & { interactive?: boolean; tone?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 }) {
   return (
     <div
       className={cn(
-        'rounded-lg bg-surface p-4 shadow-1 sm:p-5',
+        'p-4 sm:p-5',
+        tone ? PANEL_CLASS[tone] : 'bg-surface',
         interactive && 'pressable transition-colors duration-150 hover:bg-surface-2',
         className,
       )}
@@ -97,7 +101,7 @@ export function Stat({
         {label}
       </p>
       <p
-        className={cn('num flex items-baseline gap-1.5 font-bold', statValue[size], statTone[tone])}
+        className={cn('num flex items-baseline gap-1.5 font-display font-bold', statValue[size], statTone[tone])}
         aria-label={empty ? `${label}: belum ada data` : undefined}
       >
         <span>{empty ? '—' : value}</span>
@@ -137,10 +141,10 @@ export function ProgressBar({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(v * 100)}
-      className={cn('h-2 w-full overflow-hidden rounded-full bg-surface-3', className)}
+      className={cn('h-2 w-full overflow-hidden bg-surface-3', className)}
     >
       <div
-        className={cn('h-full w-full origin-left rounded-full transition-transform duration-[440ms] ease-spring', fill[tone])}
+        className={cn('h-full w-full origin-left transition-transform duration-[440ms] ease-spring', fill[tone])}
         style={{ transform: `scaleX(${v})` }}
       />
     </div>
@@ -191,13 +195,13 @@ export function ProgressRing({
           r={r}
           fill="none"
           strokeWidth={stroke}
-          strokeLinecap="round"
+          strokeLinecap="butt"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - v)}
           className={cn('transition-[stroke-dashoffset] duration-[440ms] ease-spring', color[tone])}
         />
       </svg>
-      {children && <div className="absolute inset-0 grid place-items-center">{children}</div>}
+      {children && <div className="num absolute inset-0 grid place-items-center font-display">{children}</div>}
     </div>
   );
 }

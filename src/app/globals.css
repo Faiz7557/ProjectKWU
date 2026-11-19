@@ -4,46 +4,57 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 @custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
 
-/* ---------- DARK = default (berlaku juga sebelum JS jalan) ---------- */
+/* ---------- TERANG = default (berlaku juga sebelum JS jalan) ---------- */
 :root,
-[data-theme="dark"] {
-  color-scheme: dark;
-  --canvas: #09090b;   --surface: #141417;  --surface-2: #1c1c21;  --surface-3: #26262c;
-  --separator: rgb(255 255 255 / 0.08);     --border-strong: rgb(255 255 255 / 0.16);
-  --text: #f5f5f7;     --text-2: #a1a1aa;   --text-3: #93939c;
-  --accent: #0a6cff;   --on-accent: #ffffff; --accent-text: #4da3ff; --accent-soft: rgb(10 108 255 / 0.16);
-  --success: #30d158;  --warning: #ffb340;  --danger: #ff6961;
-  --success-soft: rgb(48 209 88 / 0.14);    --warning-soft: rgb(255 179 64 / 0.14); --danger-soft: rgb(255 105 97 / 0.16);
-  --on-success: #000000; --on-danger: #000000;
-  --data-kcal: #ff9f0a; --data-sym: #5ac8fa; --data-xp: #a78bfa;
-  --data-reps: #4da3ff; --data-form: #30d158; --data-streak: #ffb340;
-  --focus-ring: #4da3ff;
-  --scrim: rgb(0 0 0 / 0.6);
-  --material: rgb(20 20 23 / 0.72);
-  --edge-light: inset 0 1px 0 rgb(255 255 255 / 0.06);
-  --elev-1: var(--edge-light);
-  --elev-2: var(--edge-light), 0 8px 24px rgb(0 0 0 / 0.4);
-  --elev-3: var(--edge-light), 0 24px 64px rgb(0 0 0 / 0.55);
-}
-
 [data-theme="light"] {
   color-scheme: light;
-  --canvas: #f5f5f7;   --surface: #ffffff;  --surface-2: #ffffff;  --surface-3: #e8e8ed;
-  --separator: rgb(0 0 0 / 0.08);           --border-strong: rgb(0 0 0 / 0.16);
-  --text: #1d1d1f;     --text-2: #4b4b52;   --text-3: #636368;
-  --accent: #0066d6;   --on-accent: #ffffff; --accent-text: #0060c7; --accent-soft: rgb(0 102 214 / 0.10);
-  --success: #1a7431;  --warning: #a15200;  --danger: #c4171d;
-  --success-soft: rgb(26 116 49 / 0.10);    --warning-soft: rgb(161 82 0 / 0.10);  --danger-soft: rgb(196 23 29 / 0.08);
-  --on-success: #ffffff; --on-danger: #ffffff;
-  --data-kcal: #a44300; --data-sym: #00708a; --data-xp: #6d3fd1;
-  --data-reps: #0060c7; --data-form: #1a7431; --data-streak: #a15200;
-  --focus-ring: #0060c7;
-  --scrim: rgb(0 0 0 / 0.32);
-  --material: rgb(255 255 255 / 0.72);
-  --edge-light: inset 0 1px 0 rgb(255 255 255 / 0.6);
-  --elev-1: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 1px rgb(0 0 0 / 0.04);
-  --elev-2: 0 8px 24px rgb(0 0 0 / 0.10), 0 2px 6px rgb(0 0 0 / 0.06);
-  --elev-3: 0 24px 64px rgb(0 0 0 / 0.18), 0 4px 12px rgb(0 0 0 / 0.08);
+  --canvas: #f4f1ee;   --surface: #ebe6e1;  --surface-2: #e2dcd6;  --surface-3: #d8d0c9;
+  --separator: rgb(0 0 0 / 0.10);           --border-strong: rgb(0 0 0 / 0.20);
+  --text: #0b0a0a;     --text-2: #4a4542;   --text-3: #5c5651;
+  --accent: #cf6224;   --on-accent: #0b0a0a; --accent-text: #9b3418; --accent-soft: rgb(207 98 36 / 0.10);
+  --success: #2a5c4d;  --warning: #7a5200;  --danger: #a1221b;
+  --success-soft: rgb(42 92 77 / 0.10);     --warning-soft: rgb(122 82 0 / 0.10);  --danger-soft: rgb(161 34 27 / 0.10);
+  --on-success: #f4f1ee; --on-danger: #f4f1ee;
+  --data-kcal: #9b3418; --data-sym: #7a4a6c; --data-xp: #5a3cd4;
+  --data-reps: #4a2fb8; --data-form: #2a5c4d; --data-streak: #7a5200;
+  --focus-ring: #5a3cd4;
+  --scrim: rgb(0 0 0 / 0.6);
+  --material: rgb(244 241 238 / 0.85);
+  --edge-light: none;
+  --elev-1: none;
+  --elev-2: none;
+  --elev-3: none;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0b0a0a;   --surface: #161414;  --surface-2: #1f1c1c;  --surface-3: #2a2626;
+  --separator: rgb(255 255 255 / 0.08);     --border-strong: rgb(255 255 255 / 0.16);
+  --text: #f4f1ee;     --text-2: #b8b0aa;   --text-3: #a39b95;
+  --accent: #cf6224;   --on-accent: #0b0a0a; --accent-text: #e8814a; --accent-soft: rgb(207 98 36 / 0.14);
+  --success: #80a89b;  --warning: #e3b867;  --danger: #ff6b4a;
+  --success-soft: rgb(128 168 155 / 0.14);  --warning-soft: rgb(227 184 103 / 0.14); --danger-soft: rgb(255 107 74 / 0.14);
+  --on-success: #0b0a0a; --on-danger: #0b0a0a;
+  --data-kcal: #e8814a; --data-sym: #c9a3bf; --data-xp: #9d8cf0;
+  --data-reps: #9d8cf0; --data-form: #80a89b; --data-streak: #e3b867;
+  --focus-ring: #e3b867;
+  --scrim: rgb(0 0 0 / 0.6);
+  --material: rgb(11 10 10 / 0.8);
+  --edge-light: none;
+  --elev-1: none;
+  --elev-2: none;
+  --elev-3: none;
+}
+
+/* Palet panel Sill: sama di kedua tema */
+:root {
+  --panel-1: #cf6224; --panel-2: #6e1116; --panel-3: #5a3cd4; --panel-4: #bca59d;
+  --panel-5: #a97d9c; --panel-6: #9b3418; --panel-7: #80a89b; --panel-8: #e3b867;
+  --on-panel-1: #0b0a0a; --on-panel-2: #f4f1ee; --on-panel-3: #f4f1ee; --on-panel-4: #0b0a0a;
+  --on-panel-5: #0b0a0a; --on-panel-6: #f4f1ee; --on-panel-7: #0b0a0a; --on-panel-8: #0b0a0a;
+  --ink: #0b0a0a;
+  --paper: #f4f1ee;
+  --gutter: clamp(8px, 1.2vw, 16px);
 }
 
 /* Aksesibilitas: kontras tinggi menaikkan separator & teks sekunder */
@@ -68,8 +79,16 @@
   --color-data-reps: var(--data-reps); --color-data-form: var(--data-form); --color-data-streak: var(--data-streak);
   --color-scrim: var(--scrim);       --color-material: var(--material);
   --color-focus: var(--focus-ring);
+  --color-panel-1: var(--panel-1); --color-panel-2: var(--panel-2); --color-panel-3: var(--panel-3); --color-panel-4: var(--panel-4);
+  --color-panel-5: var(--panel-5); --color-panel-6: var(--panel-6); --color-panel-7: var(--panel-7); --color-panel-8: var(--panel-8);
+  --color-on-panel-1: var(--on-panel-1); --color-on-panel-2: var(--on-panel-2); --color-on-panel-3: var(--on-panel-3); --color-on-panel-4: var(--on-panel-4);
+  --color-on-panel-5: var(--on-panel-5); --color-on-panel-6: var(--on-panel-6); --color-on-panel-7: var(--on-panel-7); --color-on-panel-8: var(--on-panel-8);
+  --color-ink: var(--ink); --color-paper: var(--paper);
+  --spacing-gutter: var(--gutter);
 
-  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-rethink), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-gabarito), var(--font-sans);
+  --font-hand: var(--font-playwrite), cursive;
   --text-footnote: 0.8125rem; --text-footnote--line-height: 1.35;
   --text-callout: 0.9375rem;  --text-callout--line-height: 1.45;
 
@@ -84,7 +103,7 @@
   --text-metric-xl: clamp(5rem, 22vw, 9rem); --text-metric-xl--line-height: 1; --text-metric-xl--font-weight: 700; --text-metric-xl--letter-spacing: -0.04em;
   --text-display: clamp(2.25rem, 6vw, 4rem); --text-display--line-height: 1.05; --text-display--font-weight: 700; --text-display--letter-spacing: -0.03em;
 
-  --radius-xs: 8px; --radius-sm: 12px; --radius-md: 16px; --radius-lg: 22px; --radius-xl: 28px;
+  --radius-xs: 0; --radius-sm: 0; --radius-md: 0; --radius-lg: 0; --radius-xl: 0;
   --shadow-1: var(--elev-1); --shadow-2: var(--elev-2); --shadow-3: var(--elev-3);
 
   --ease-spring: linear(0, 0.142, 0.38, 0.588, 0.74, 0.841, 0.905, 0.945, 0.968, 0.982, 0.99, 0.994, 0.997, 0.998, 1);
@@ -134,3 +153,43 @@ html:has(dialog[open]) { overflow: hidden; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ---- T2.1: panel scope & base type ---- */
+@layer base {
+  h1, h2, h3 { font-family: var(--font-display); }
+}
+@layer components {
+  .panel-1 { background: var(--panel-1); color: var(--on-panel-1); --text: var(--on-panel-1); --text-2: var(--on-panel-1); --text-3: var(--on-panel-1); --accent-text: var(--on-panel-1); --separator: color-mix(in srgb, var(--on-panel-1) 20%, transparent); }
+  .panel-2 { background: var(--panel-2); color: var(--on-panel-2); --text: var(--on-panel-2); --text-2: var(--on-panel-2); --text-3: var(--on-panel-2); --accent-text: var(--on-panel-2); --separator: color-mix(in srgb, var(--on-panel-2) 20%, transparent); }
+  .panel-3 { background: var(--panel-3); color: var(--on-panel-3); --text: var(--on-panel-3); --text-2: var(--on-panel-3); --text-3: var(--on-panel-3); --accent-text: var(--on-panel-3); --separator: color-mix(in srgb, var(--on-panel-3) 20%, transparent); }
+  .panel-4 { background: var(--panel-4); color: var(--on-panel-4); --text: var(--on-panel-4); --text-2: var(--on-panel-4); --text-3: var(--on-panel-4); --accent-text: var(--on-panel-4); --separator: color-mix(in srgb, var(--on-panel-4) 20%, transparent); }
+  .panel-5 { background: var(--panel-5); color: var(--on-panel-5); --text: var(--on-panel-5); --text-2: var(--on-panel-5); --text-3: var(--on-panel-5); --accent-text: var(--on-panel-5); --separator: color-mix(in srgb, var(--on-panel-5) 20%, transparent); }
+  .panel-6 { background: var(--panel-6); color: var(--on-panel-6); --text: var(--on-panel-6); --text-2: var(--on-panel-6); --text-3: var(--on-panel-6); --accent-text: var(--on-panel-6); --separator: color-mix(in srgb, var(--on-panel-6) 20%, transparent); }
+  .panel-7 { background: var(--panel-7); color: var(--on-panel-7); --text: var(--on-panel-7); --text-2: var(--on-panel-7); --text-3: var(--on-panel-7); --accent-text: var(--on-panel-7); --separator: color-mix(in srgb, var(--on-panel-7) 20%, transparent); }
+  .panel-8 { background: var(--panel-8); color: var(--on-panel-8); --text: var(--on-panel-8); --text-2: var(--on-panel-8); --text-3: var(--on-panel-8); --accent-text: var(--on-panel-8); --separator: color-mix(in srgb, var(--on-panel-8) 20%, transparent); }
+
+  /* Permukaan netral di dalam panel kembali ke token tema; tanpa ini teks ink jatuh di atas surface gelap (tema gelap). */
+  :is(.panel-1, .panel-2, .panel-3, .panel-4, .panel-5, .panel-6, .panel-7, .panel-8) :is(.bg-canvas, .bg-surface, .bg-surface-2, .bg-surface-3) {
+    color: var(--theme-text); --text: var(--theme-text); --text-2: var(--theme-text-2); --text-3: var(--theme-text-3);
+    --accent-text: var(--theme-accent-text); --separator: var(--theme-separator);
+  }
+}
+/* Salinan token teks tema, dihitung di <html> sehingga tidak ikut tertimpa .panel-N di bawahnya. */
+:root, [data-theme] {
+  --theme-text: var(--text); --theme-text-2: var(--text-2); --theme-text-3: var(--text-3);
+  --theme-accent-text: var(--accent-text); --theme-separator: var(--separator);
+}
+
+/* T5.1 motion: start */
+.rep-tick { animation: rep-tick 160ms var(--ease-out-soft) both; }
+.rep-flash { animation: rep-flash 120ms linear both; }
+.sum-in { animation: sum-in 300ms var(--ease-out-soft) both; animation-delay: calc(var(--i, 0) * 50ms); }
+@keyframes rep-tick { from { opacity: 0; transform: translateY(30%); } }
+@keyframes rep-flash { from { opacity: 1; } to { opacity: 0; } }
+@keyframes sum-in { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) {
+  /* Tanpa gerak: angka dan panel langsung tampil. Kilat warna tetap (perubahan warna, bukan gerak). */
+  .rep-tick, .sum-in { animation: none !important; }
+  .rep-flash { animation-duration: 120ms !important; }
+}
+/* T5.1 motion: end */

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ExerciseConfig } from '@/trackers/types';
 import { Camera, Smartphone, CheckCircle2, UserCheck, ShieldCheck } from 'lucide-react';
+import { CameraSetupSceneLazy } from '@/components/three/CameraSetupSceneLazy';
 import { ReferencePoseVisualizer } from './ReferencePoseVisualizer';
 import { SegmentedControl } from '@/components/ui/Controls';
 import { Button } from '@/components/ui/Button';
@@ -21,15 +22,16 @@ export function CameraGuide({ config, onReady }: CameraGuideProps) {
   const [tab, setTab] = useState<GuideTab>('pose');
 
   return (
-    <Card className="mx-auto max-w-xl space-y-6 p-5 sm:p-6">
+    <Card tone={4} className="mx-auto max-w-xl space-y-6 p-5 sm:p-6">
       <header className="flex items-center gap-3">
         <ExerciseIcon exercise={config.id} />
         <div className="min-w-0">
-          <p className="text-caption font-semibold text-accent-text">Persiapan latihan</p>
-          <h2 className="text-title-2 text-text">{config.name}</h2>
+          <p className="text-caption font-semibold uppercase tracking-[0.06em]">Persiapan latihan</p>
+          <h2 className="font-display text-title-2">{config.name}</h2>
         </div>
       </header>
 
+      <div data-tour="ex-guide-tabs">
       <SegmentedControl<GuideTab>
         label="Panduan"
         value={tab}
@@ -39,32 +41,38 @@ export function CameraGuide({ config, onReady }: CameraGuideProps) {
           { value: 'camera', label: 'Posisi kamera', icon: <Smartphone className="size-4" aria-hidden="true" /> },
         ]}
       />
+      </div>
 
-      {tab === 'pose' && <ReferencePoseVisualizer exerciseId={config.id} autoPlayDefault={true} />}
+      {tab === 'pose' && (
+        <div data-tour="ex-reference">
+          <ReferencePoseVisualizer exerciseId={config.id} autoPlayDefault={true} />
+        </div>
+      )}
 
       {tab === 'camera' && (
         <div className="animate-enter space-y-4">
-          <div className="flex flex-col items-center gap-3 rounded-lg bg-surface-3 p-5 text-center">
-            <span className="grid size-16 place-items-center rounded-full border-2 border-dashed border-accent-text/40 text-accent-text" aria-hidden="true">
-              <Smartphone className="size-8" />
-            </span>
+          <div className="flex flex-col items-center gap-3 bg-paper p-5 text-center text-ink">
+            {/* Unmount (ganti tab / fase env-check) memanggil handle.dispose() di CameraSetupScene. */}
+            <div className="aspect-[4/3] w-full bg-surface text-text">
+              <CameraSetupSceneLazy orientation={config.cameraOrientation} className="h-full w-full" />
+            </div>
             <Badge tone="accent">{isFront ? 'Menghadap ke depan' : 'Arahkan dari samping'}</Badge>
-            <p className="max-w-sm text-callout text-text-2">
+            <p className="max-w-sm text-callout">
               {isFront
                 ? 'Letakkan HP atau laptop tegak lurus di depan kamu, agar seluruh tubuh dari kepala sampai kaki terlihat.'
                 : 'Posisikan kamera di samping tubuh kamu (jarak sekitar 1,5 sampai 2 meter), agar lutut, pinggul, atau siku terlihat jelas.'}
             </p>
           </div>
 
-          <ul className="space-y-2.5 rounded-lg border border-separator bg-canvas p-4">
+          <ul className="space-y-2.5 bg-paper p-4 text-ink">
             {config.instructions.map((inst, idx) => (
-              <li key={idx} className="flex items-start gap-2.5 text-callout text-text-2">
-                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-success" aria-hidden="true" />
+              <li key={idx} className="flex items-start gap-2.5 text-callout">
+                <CheckCircle2 className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
                 <span>{inst}</span>
               </li>
             ))}
-            <li className="flex items-start gap-2.5 text-callout text-text-2">
-              <ShieldCheck className="mt-0.5 size-5 shrink-0 text-success" aria-hidden="true" />
+            <li className="flex items-start gap-2.5 text-callout">
+              <ShieldCheck className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
               <span>Video kamu tidak pernah dikirim ke server mana pun.</span>
             </li>
           </ul>
@@ -72,10 +80,10 @@ export function CameraGuide({ config, onReady }: CameraGuideProps) {
       )}
 
       <div className="space-y-2">
-        <Button size="xl" className="w-full" onClick={onReady} icon={<Camera className="size-5" aria-hidden="true" />}>
+        <Button data-tour="ex-start" size="xl" className="w-full" onClick={onReady} icon={<Camera className="size-5" aria-hidden="true" />}>
           Nyalakan kamera
         </Button>
-        <p className="text-center text-footnote text-text-3">Browser akan meminta izin kamera.</p>
+        <p className="text-center text-footnote">Browser akan meminta izin kamera.</p>
       </div>
     </Card>
   );

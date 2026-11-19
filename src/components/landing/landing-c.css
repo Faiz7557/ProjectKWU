@@ -1,0 +1,92 @@
+/*
+ * Gaya section bagian C: Promises (pm), Faq (fq), FinalCta (fc), LandingFooter (lf).
+ * Diadaptasi dari 8B Sill template (MIT), https://github.com/8bsite/pet-boarding-website-template
+ */
+@layer components {
+  /* ---------- Promises ---------- */
+  .pm { padding-top: clamp(56px, 9svh, 110px); overflow-x: clip; }
+  .pm-head { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gutter); margin-bottom: clamp(28px, 6svh, 64px); padding: 0 10px; }
+  .pm-head h2 { grid-column: 1 / 7; }
+  .pm-head p { grid-column: 8 / 12; align-self: end; }
+  .pm-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gutter); }
+  .pm-card { min-height: clamp(280px, 40svh, 380px); padding: clamp(20px, 2.4vw, 40px); display: flex; flex-direction: column; justify-content: space-between; gap: 22px; }
+  .pm-word { font-size: clamp(40px, 4.6vw, 74px); overflow-wrap: anywhere; }
+  @media (max-width: 900px) {
+    .pm-head h2, .pm-head p { grid-column: 1 / 13; }
+    .pm-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 767.98px) {
+    .pm-card { min-height: 240px; padding: 16px; }
+    .pm-word { font-size: clamp(32px, 10vw, 44px); }
+  }
+
+  /* ---------- Faq ---------- */
+  .fq { padding-top: clamp(56px, 9svh, 110px); }
+  .fq-grid { align-items: stretch; }
+  .fq-head { grid-column: 1 / 6; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; min-height: 380px; }
+  .fq-list { grid-column: 6 / 13; display: grid; gap: var(--gutter); align-content: start; min-width: 0; }
+  .fq-item summary { display: flex; justify-content: space-between; align-items: center; gap: 20px; min-height: 44px; padding: 20px clamp(20px, 2.4vw, 40px); cursor: pointer; list-style: none; font-size: clamp(18px, 1.6vw, 24px); }
+  .fq-item summary::-webkit-details-marker { display: none; }
+  .fq-item summary::after { content: ""; flex: none; width: 18px; height: 18px; background: linear-gradient(currentColor, currentColor) center / 100% 3px no-repeat, linear-gradient(currentColor, currentColor) center / 3px 100% no-repeat; transition: transform .35s; }
+  .fq-item[open] summary::after { transform: rotate(45deg); }
+  .fq-item summary:focus-visible { outline-offset: -6px; }
+  .fq-a { padding: 0 clamp(20px, 2.4vw, 40px) clamp(20px, 2.4vw, 40px); max-width: 62ch; }
+  @media (max-width: 900px) {
+    .fq-head, .fq-list { grid-column: 1 / 13; }
+    .fq-head { min-height: 0; }
+  }
+  /* Transisi tinggi tanpa JS; browser tanpa dukungan membuka/menutup langsung. */
+  @supports (selector(::details-content)) {
+    .fq-item { interpolate-size: allow-keywords; }
+    .fq-item::details-content { block-size: 0; overflow: clip; transition: block-size .4s ease, content-visibility .4s allow-discrete; }
+    .fq-item[open]::details-content { block-size: auto; }
+  }
+
+  /* ---------- FinalCta ---------- */
+  .fc { padding-top: clamp(56px, 9svh, 110px); overflow: clip; }
+  .fc-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: auto auto auto; gap: var(--gutter); }
+  .fc-side { position: relative; padding: clamp(20px, 2.4vw, 40px); display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .fc-kamera { grid-column: 1 / 3; grid-row: 1 / 4; justify-content: space-between; align-items: flex-start; }
+  .fc-privasi { grid-column: 11 / 13; grid-row: 1 / 4; justify-content: space-between; align-items: flex-end; text-align: right; }
+  .fc-perangkat { grid-column: 3 / 11; grid-row: 1; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; }
+  .fc-harga { grid-column: 3 / 11; grid-row: 3; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; }
+  .fc-main { grid-column: 3 / 11; grid-row: 2; padding: clamp(20px, 2.4vw, 40px); display: flex; flex-direction: column; align-items: flex-start; gap: 28px; }
+  .fc-label { font-size: clamp(44px, 5.4vw, 84px); }
+  .fc-kamera .fc-label, .fc-privasi .fc-label { width: max-content; align-self: center; margin-block: calc((var(--len) * .56em - .94em) / 2); margin-inline: calc((var(--len) * -.56em + .94em) / 2); }
+  .fc-kamera .fc-label { transform: rotate(-90deg); }
+  .fc-privasi .fc-label { transform: rotate(90deg); }
+  @media (max-width: 1100px) {
+    .fc-label { font-size: clamp(36px, 5vw, 60px); }
+  }
+  @media (max-width: 900px) {
+    .fc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
+    .fc-kamera, .fc-privasi, .fc-perangkat, .fc-harga { grid-row: auto; flex-direction: column; justify-content: space-between; align-items: flex-start; text-align: left; min-height: 150px; }
+    .fc-kamera { grid-column: 1; grid-row: 1; }
+    .fc-privasi { grid-column: 2; grid-row: 1; }
+    .fc-perangkat { grid-column: 1; grid-row: 2; }
+    .fc-harga { grid-column: 2; grid-row: 2; }
+    .fc-kamera .fc-label, .fc-privasi .fc-label { width: auto; margin: 0; align-self: flex-start; transform: none; }
+    .fc-label { font-size: clamp(30px, 8vw, 48px); }
+    .fc-main { grid-column: 1 / 3; grid-row: 3; }
+  }
+  @media (max-width: 420px) {
+    .fc-side { padding: 14px; }
+  }
+
+  /* ---------- LandingFooter ---------- */
+  .lf { padding: clamp(64px, 11svh, 120px) var(--gutter) 0; }
+  .lf-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 28px var(--gutter); padding: 0 10px; }
+  .lf-grid > :nth-child(1) { grid-column: 1 / 4; }
+  .lf-grid > :nth-child(2) { grid-column: 4 / 7; }
+  .lf-note { grid-column: 8 / 13; display: grid; gap: 14px; align-content: start; }
+  .lf-title { opacity: .7; margin-bottom: 10px; }
+  .lf-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .lf-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .lf-credit { font-size: 14px; line-height: 1.6; opacity: .75; }
+  .lf-mark { margin-top: clamp(40px, 8svh, 90px); }
+  .lf-word { font-family: var(--font-display); font-weight: 900; color: var(--panel-1); white-space: nowrap; line-height: 1; padding-top: .02em;
+    font-size: min(46vw, calc((100vw - 2 * var(--gutter)) / (var(--len) * .52))); }
+  @media (max-width: 767.98px) {
+    .lf-grid > :nth-child(n) { grid-column: 1 / 13; }
+  }
+}
