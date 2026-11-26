@@ -16,6 +16,9 @@ interface EnvironmentCheckProps {
 
 type CheckState = 'ok' | 'warn' | 'pending';
 
+/** Semua cek harus hijau terus-menerus selama ini sebelum lanjut otomatis. */
+const PASS_HOLD_MS = 1000;
+
 // Satu baris checklist: ikon status + judul + detail (UI_UX_BRIEF §7.3, checklist ala iOS).
 function CheckRow({ state, icon: Icon, title, detail }: { state: CheckState; icon: React.ComponentType<{ className?: string }>; title: string; detail: string }) {
   // Ikon di atas chip ink: pakai warna terang yang tetap kontras di kedua tema (bukan token teks tema/panel).
@@ -45,9 +48,6 @@ export function EnvironmentCheck({ config, videoRef, trackingResult, onPassed, o
   const [framingStatus, setFramingStatus] = useState<'checking' | 'good' | 'missing'>('checking');
   const [aiLockStatus, setAiLockStatus] = useState<'waiting' | 'locked'>('waiting');
 
-  // Auto-progress countdown saat semua cek hijau
-  const [readySeconds, setReadySeconds] = useState<number | null>(null);
-  const consecutivePassCountRef = useRef(0);
 
   // Hidden canvas untuk sampling kecerahan frame video
   const sampleCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -117,22 +117,18 @@ export function EnvironmentCheck({ config, videoRef, trackingResult, onPassed, o
 
   const allGood = lightingStatus === 'good' && framingStatus === 'good' && aiLockStatus === 'locked';
 
-  // Evaluasi kelulusan & auto-trigger countdown
+  // Evaluasi kelulusan & auto-trigger countdown. Berbasis waktu, bukan jumlah render:
+  // frekuensi render halaman tidak tetap (hasil tracking dipublish dengan throttle).
+  const onPassedRef = useRef(onPassed);
   useEffect(() => {
-    if (allGood) {
-      consecutivePassCountRef.current++;
-      // Butuh sekitar 1 detik stabil (30 fps ~ 30 frames)
-      if (consecutivePassCountRef.current >= 30) {
-        onPassed();
-      } else {
-        const remaining = Math.max(1, Math.ceil((30 - consecutivePassCountRef.current) / 30));
-        setReadySeconds(remaining);
-      }
-    } else {
-      consecutivePassCountRef.current = 0;
-      setReadySeconds(null);
-    }
-  }, [allGood, onPassed]);
+    onPassedRef.current = onPassed;
+  });
+  useEffect(() => {
+    if (!allGood) return;
+    const timer = setTimeout(() => onPassedRef.current(), PASS_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [allGood]);
+  const readySeconds = allGood ? Math.ceil(PASS_HOLD_MS / 1000) : null;
 
   const lightState: CheckState = lightingStatus === 'good' ? 'ok' : lightingStatus === 'checking' ? 'pending' : 'warn';
   const lightDetail =

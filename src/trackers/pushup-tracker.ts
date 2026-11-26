@@ -6,7 +6,15 @@ import type {
   FormFault,
   FrameSize,
 } from './types';
-import { calculateAngle, toPixelSpace, bodyDeviation, angleFromHorizontal, DEFAULT_FRAME, SideSelector } from './base-tracker';
+import {
+  calculateAngle,
+  toPixelSpace,
+  bodyDeviation,
+  angleFromHorizontal,
+  distance2D,
+  DEFAULT_FRAME,
+  SideSelector,
+} from './base-tracker';
 import { RepStateMachine, RepAccumulator } from './rep-state-machine';
 
 const L_SHOULDER = 11;
@@ -21,13 +29,22 @@ const L_ANKLE = 27;
 const R_ANKLE = 28;
 
 const ANGLE_DOWN = 95;  // Sudut siku posisi bawah (default; bisa dikalibrasi)
-const ANGLE_UP = 160;   // Sudut siku posisi atas lurus
+// Sudut siku posisi atas. Bukan 160: banyak orang mengunci siku di 150-158° dan sudut 2D
+// tampak samping jarang terbaca >160°, sehingga rep tidak pernah kembali ke TOP (stuck "down").
+const ANGLE_UP = 150;
 const HIP_DEVIATION_LIMIT = 0.07; // Deviasi pinggul bertanda, dinormalisasi panjang tubuh
 const TORSO_MAX_INCLINE = 45;     // Derajat bahu-pinggul dari horizontal; di atas ini bukan posisi push-up
+// Lebar bahu / panjang lengan atas. Tampak samping: bahu kiri-kanan bertumpuk (~0-0.5).
+// Tampak depan: lebar bahu ~1.2-1.5x lengan atas, dan sudut siku 2D terpendek (tidak bisa dipakai).
+const FRONT_VIEW_RATIO = 0.8;
+// Siku sering tertutup badan sesaat di posisi bawah; 300 ms default terlalu cepat membatalkan rep.
+const LOST_RESET_MS = 600;
 
 export interface PushupOptions {
   /** Ambang bawah hasil kalibrasi personal. */
   bottom?: number;
+  /** Ambang atas hasil kalibrasi personal (hanya boleh <= ANGLE_UP). */
+  top?: number;
 }
 
 export class PushupTracker implements ExerciseTracker {
@@ -50,8 +67,17 @@ export class PushupTracker implements ExerciseTracker {
 
   constructor(options: PushupOptions = {}) {
     this.acc = new RepAccumulator(
-      new RepStateMachine({ top: ANGLE_UP, bottom: options.bottom ?? ANGLE_DOWN })
+      new RepStateMachine({
+        top: Math.min(options.top ?? ANGLE_UP, ANGLE_UP),
+        bottom: options.bottom ?? ANGLE_DOWN,
+      }),
+      { lostResetMs: LOST_RESET_MS }
     );
+  }
+
+  /** Pesan saat tubuh tidak terlacak; mendahulukan pemberitahuan rep yang dibatalkan. */
+  private lostFeedback(t: number, fallback: string): string {
+    return this.acc.abortNotice(t) ? 'Rep dibatalkan: lengan tidak terlihat kamera. Mulai lagi dari atas' : fallback;
   }
 
   processLandmarks(landmarks: NormalizedLandmark[], timestamp: number, frame: FrameSize = DEFAULT_FRAME): TrackingResult {
@@ -65,7 +91,10 @@ export class PushupTracker implements ExerciseTracker {
 
     if (!isLeftValid && !isRightValid) {
       this.acc.markLost(timestamp);
-      return this.lostResult('Posisikan tubuh agar bahu dan lengan terlihat jelas', Math.max(leftVis, rightVis));
+      return this.lostResult(
+        this.lostFeedback(timestamp, 'Posisikan tubuh agar bahu dan lengan terlihat jelas'),
+        Math.max(leftVis, rightVis)
+      );
     }
     this.acc.markVisible();
 
@@ -78,12 +107,31 @@ export class PushupTracker implements ExerciseTracker {
     const H = useLeft ? L_HIP : R_HIP;
     const A = useLeft ? L_ANKLE : R_ANKLE;
 
+    // Kamera dari depan: sudut siku 2D terpendek dan tidak bisa dipakai menghitung rep.
+    if (isLeftValid && isRightValid) {
+      const shoulderWidth = distance2D(p[L_SHOULDER], p[R_SHOULDER]);
+      const upperArm = distance2D(p[S], p[E]) || 1;
+      if (shoulderWidth / upperArm > FRONT_VIEW_RATIO) {
+        this.acc.markLost(timestamp);
+        return {
+          ...this.lostResult(
+            this.lostFeedback(timestamp, 'Kamera menghadap depan. Letakkan kamera di SAMPING tubuh'),
+            Math.max(leftVis, rightVis)
+          ),
+          isTracking: true,
+        };
+      }
+    }
+
     // Gating posisi: rep hanya dihitung saat torso mendatar. Tanpa ini menekuk siku sambil
     // berdiri/duduk ikut terhitung sebagai push-up.
     if (vis(H) >= minVis && angleFromHorizontal(p[S], p[H]) > TORSO_MAX_INCLINE) {
       this.acc.markLost(timestamp);
       return {
-        ...this.lostResult('Ambil posisi push-up: tubuh mendatar menghadap lantai', Math.max(leftVis, rightVis)),
+        ...this.lostResult(
+          this.lostFeedback(timestamp, 'Ambil posisi push-up: tubuh mendatar menghadap lantai'),
+          Math.max(leftVis, rightVis)
+        ),
         isTracking: true,
       };
     }
@@ -164,6 +212,10 @@ export class PushupTracker implements ExerciseTracker {
 
   getCleanRepCount(): number {
     return this.acc.cleanRepCount;
+  }
+
+  getRomSamples(): { top: number; bottom: number }[] {
+    return this.acc.romSamples();
   }
 
   reset(): void {

@@ -64,6 +64,12 @@ export class OneEuroFilter {
 /**
  * Pengelola filter independen untuk seluruh 33 landmark (x, y, z) MediaPipe BlazePose.
  * Total 33 × 3 = 99 filter instances terisolasi.
+ *
+ * `beta` harus sesuai skala sinyal. Landmark ternormalisasi (0..1) bergerak ~0.2-0.5 unit/detik
+ * saat push-up, jadi beta 0.007 (nilai paper untuk piksel) membuat suku adaptif ~0 dan filter
+ * menjadi low-pass tetap 1 Hz: puncak & lembah gerakan terpotong ~10° sehingga sinyal tidak
+ * pernah mencapai ambang atas/bawah dan rep "stuck". Beta 8 memulihkan amplitudo penuh pada
+ * rep 1.2 dtk dengan jitter diam yang sama (~0.6° SD pada noise 4 px).
  */
 export class LandmarkSmoother {
   private filters: OneEuroFilter[][] = [];
@@ -71,7 +77,7 @@ export class LandmarkSmoother {
   constructor(
     numLandmarks: number = 33,
     minCutoff: number = 1.0,
-    beta: number = 0.007
+    beta: number = 8
   ) {
     for (let i = 0; i < numLandmarks; i++) {
       this.filters.push([

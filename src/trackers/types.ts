@@ -140,6 +140,9 @@ export interface ExerciseTracker {
   /** Mendapatkan jumlah repetisi berpostur bersih */
   getCleanRepCount(): number;
 
+  /** Puncak & lembah sinyal tiap rep penuh sesi ini, untuk kalibrasi otomatis (hanya tracker counter). */
+  getRomSamples?(): { top: number; bottom: number }[];
+
   /** Reset status perhitungan dan state machine */
   reset(): void;
 }

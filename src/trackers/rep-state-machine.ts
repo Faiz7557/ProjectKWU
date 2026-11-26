@@ -180,8 +180,11 @@ export class RepStateMachine {
   }
 }
 
-/** Mengembalikan segala kondisi tubuh hilang lebih lama dari ini ke posisi awal (tanpa event). */
+/** Default: tubuh hilang lebih lama dari ini membatalkan rep yang berjalan (tanpa event). */
 export const LOST_RESET_MS = 300;
+
+/** Lama pesan "rep dibatalkan" tetap ditampilkan setelah pembatalan. */
+const ABORT_NOTICE_MS = 2000;
 
 export interface RepUpdate {
   event: RepEvent | null;
@@ -199,21 +202,42 @@ export class RepAccumulator {
   readonly faults: FormFault[] = [];
   private readonly repFaults = new Map<string, FormFault>();
   private lostSince: number | null = null;
+  private abortedAt: number | null = null;
+  /** Nilai sinyal tertinggi sejak rep terakhir selesai (lockout), untuk sampel ROM. */
+  private peak = -Infinity;
+  private readonly samples: { top: number; bottom: number }[] = [];
+  private readonly lostResetMs: number;
 
-  constructor(readonly rsm: RepStateMachine) {}
+  constructor(readonly rsm: RepStateMachine, options: { lostResetMs?: number } = {}) {
+    this.lostResetMs = options.lostResetMs ?? LOST_RESET_MS;
+  }
 
   /** Dipanggil saat landmark valid (tubuh terlihat). */
   markVisible(): void {
     this.lostSince = null;
   }
 
-  /** Dipanggil saat landmark tidak valid. Setelah LOST_RESET_MS, rep yang berjalan dibatalkan. */
+  /**
+   * Dipanggil saat landmark tidak valid. Setelah `lostResetMs`, rep yang berjalan dibatalkan.
+   * Pembatalan rep yang sedang berjalan dicatat agar UI bisa memberi tahu (bukan hilang diam-diam).
+   */
   markLost(t: number): void {
     if (this.lostSince === null) this.lostSince = t;
-    if (t - this.lostSince > LOST_RESET_MS) {
+    if (t - this.lostSince > this.lostResetMs) {
+      if (this.rsm.currentPhase !== 'top') this.abortedAt = t;
       this.rsm.abort();
       this.repFaults.clear();
     }
+  }
+
+  /** True selama ABORT_NOTICE_MS setelah rep dibatalkan karena tubuh hilang. */
+  abortNotice(t: number): boolean {
+    return this.abortedAt !== null && t - this.abortedAt < ABORT_NOTICE_MS;
+  }
+
+  /** Puncak & lembah sinyal tiap rep penuh sesi ini (salinan). */
+  romSamples(): { top: number; bottom: number }[] {
+    return [...this.samples];
   }
 
   /**
@@ -227,15 +251,19 @@ export class RepAccumulator {
       if (!this.repFaults.has(f.id)) this.repFaults.set(f.id, { ...f, repNumber: this.repCount + 1 });
     }
 
+    this.peak = Math.max(this.peak, value);
     const event = this.rsm.update(value, t);
     if (!event) return { event: null, faults: [] };
 
     const closed = [...this.repFaults.values()];
     this.repFaults.clear();
+    const peak = this.peak;
+    this.peak = value;
 
     if (event.kind === 'rep') {
       this.repCount++;
       if (closed.length === 0) this.cleanRepCount++;
+      this.samples.push({ top: peak, bottom: event.extremum });
     } else if (partialFault) {
       closed.push({ ...partialFault, repNumber: this.repCount + 1 });
     }
@@ -256,5 +284,8 @@ export class RepAccumulator {
     this.faults.length = 0;
     this.repFaults.clear();
     this.lostSince = null;
+    this.abortedAt = null;
+    this.peak = -Infinity;
+    this.samples.length = 0;
   }
 }

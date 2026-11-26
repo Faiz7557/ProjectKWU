@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Play } from 'lucide-react';
 import { getRoutineById, WorkoutRoutine, RoutineStep } from '@/lib/routines/presets';
 import { createTracker, ExerciseTracker } from '@/trackers';
+import { persistCalibration } from '@/trackers/calibration';
 import type { FormFault } from '@/trackers/types';
 import { useCamera } from '@/hooks/useCamera';
 import { usePoseDetection } from '@/hooks/usePoseDetection';
@@ -158,12 +159,14 @@ function RoutineWorkout({ params }: RoutinePageProps) {
   const {
     videoRef,
     status: cameraStatus,
+    error: cameraError,
     startCamera,
     stopCamera,
     toggleFacingMode,
   } = useCamera();
 
   const {
+    modelError,
     isRunning,
     trackingResult,
     tempoState,
@@ -332,6 +335,7 @@ function RoutineWorkout({ params }: RoutinePageProps) {
     triggerHapticMilestone();
 
     if (currentTracker) {
+      persistCalibration(currentTracker);
       const isCounter = currentTracker.config.type === 'counter';
       stepResultsRef.current.push({
         exerciseId: currentTracker.config.id,
@@ -541,6 +545,7 @@ function RoutineWorkout({ params }: RoutinePageProps) {
               fps={fps}
               isTracking={trackingResult?.isTracking ?? false}
               onToggleFacingMode={toggleFacingMode}
+              error={cameraError || modelError}
             />
 
             <EnvironmentCheck
@@ -576,6 +581,7 @@ function RoutineWorkout({ params }: RoutinePageProps) {
               fps={fps}
               isTracking={trackingResult?.isTracking ?? false}
               onToggleFacingMode={toggleFacingMode}
+              error={cameraError || modelError}
             />
 
             <WorkoutHUD

@@ -21,6 +21,8 @@ const LEFT_INDEX = 19;
 const RIGHT_INDEX = 20;
 const LEFT_THUMB = 21;
 const RIGHT_THUMB = 22;
+const LEFT_HIP = 23;
+const RIGHT_HIP = 24;
 
 function distance(p1: { x: number; y: number }, p2: { x: number; y: number }): number {
   return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
@@ -44,6 +46,14 @@ export class HandsFreeGestureDetector {
 
     // Cek cooldown jika sebelumnya sudah pernah memicu aksi
     if (this.lastTriggeredTime > 0 && now - this.lastTriggeredTime < this.COOLDOWN_MS) {
+      return { activeGesture: 'none', progress: 0, triggeredAction: 'none' };
+    }
+
+    // Gestur hanya berlaku saat tubuh tegak (berdiri/duduk). Saat push-up/plank kepala turun di
+    // bawah pergelangan dan tangan dekat bahu, sehingga "angkat tangan"/"silang tangan" terpicu
+    // palsu dan sesi dijeda/diakhiri di tengah rep.
+    if (!this.isUpright(landmarks)) {
+      this.reset();
       return { activeGesture: 'none', progress: 0, triggeredAction: 'none' };
     }
 
@@ -174,6 +184,15 @@ export class HandsFreeGestureDetector {
       this.reset();
       return { activeGesture: 'none', progress: 0, triggeredAction: 'none' };
     }
+  }
+
+  /** Bahu di atas pinggul dan garis bahu-pinggul mendekati vertikal (>60° dari horizontal). */
+  private isUpright(landmarks: NormalizedLandmark[]): boolean {
+    const [ls, rs, lh, rh] = [LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP].map((i) => landmarks[i]);
+    if ([lh, rh].some((p) => (p.visibility ?? 1) < 0.5)) return false;
+    const dy = (lh.y + rh.y) / 2 - (ls.y + rs.y) / 2; // positif = pinggul lebih rendah di layar
+    const dx = Math.abs((lh.x + rh.x) / 2 - (ls.x + rs.x) / 2);
+    return dy > 0.03 && Math.atan2(dy, dx) > Math.PI / 3;
   }
 
   public reset(): void {

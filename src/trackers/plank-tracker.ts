@@ -18,6 +18,10 @@ const R_ANKLE = 28;
 // Deviasi pinggul bertanda dari garis bahu-kaki, dinormalisasi panjang tubuh.
 // Positif = melorot (sag), negatif = terangkat (pike). Di dalam batas = postur lurus.
 const HIP_DEVIATION_LIMIT = 0.07;
+// Histeresis: fault baru dianggap selesai saat deviasi kembali di bawah ini. Tanpa ini pinggul
+// yang bergetar di sekitar batas membuat status berkedip tiap frame (fault tercatat puluhan kali,
+// waktu tahan tersendat, voice coach berganti kalimat terus).
+const HIP_DEVIATION_CLEAR = 0.05;
 // Jeda antar-frame lebih dari ini (lag, pause, tubuh hilang) tidak ikut dihitung sebagai waktu tahan.
 const MAX_FRAME_DELTA_SEC = 0.5;
 // Garis bahu-kaki lebih miring dari ini (derajat dari horizontal) = bukan posisi plank.
@@ -115,13 +119,19 @@ export class PlankTracker implements ExerciseTracker {
     let activeFault: FormFault | null = null;
     let feedback: string | undefined;
 
-    if (Math.abs(dev) <= HIP_DEVIATION_LIMIT) {
+    const kind: 'sagging_hips' | 'pike_hips' | null =
+      dev > HIP_DEVIATION_LIMIT ? 'sagging_hips'
+        : dev < -HIP_DEVIATION_LIMIT ? 'pike_hips'
+          : this.lastFaultId !== null && Math.abs(dev) >= HIP_DEVIATION_CLEAR ? (this.lastFaultId as 'sagging_hips' | 'pike_hips')
+            : null;
+
+    if (kind === null) {
       this.holdDurationSec += delta;
       this.cleanHoldDurationSec += delta;
       this.lastFaultId = null;
       feedback = 'Postur lurus sempurna! Tahan posisi...';
     } else {
-      activeFault = dev > 0
+      activeFault = kind === 'sagging_hips'
         ? {
             id: 'sagging_hips',
             name: 'Pinggul Turun / Melengkung',

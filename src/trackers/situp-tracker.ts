@@ -23,7 +23,9 @@ const R_KNEE = 26;
 
 // Sinyal = -(sudut torso terhadap horizontal). Berbaring ≈ 0 (top, nilai -10);
 // angkatan penuh ≈ 90 (bottom, nilai -60 atau lebih rendah). Dibalik agar konvensi RepStateMachine terpenuhi.
-const TORSO_LYING = 10;   // derajat: di bawah ini = berbaring (top)
+// derajat: di bawah ini = berbaring (top). Bukan 10: bahu-pinggul saat berbaring terbaca 12-20°
+// (tebal badan, matras, kamera sedikit di atas lantai), sehingga rep tidak pernah selesai (stuck "crunched").
+const TORSO_LYING = 25;
 const TORSO_CRUNCH = 60;  // derajat: di atas ini = angkatan tercapai (bottom)
 const THIGH_DRIFT_LIMIT = 25; // derajat: perubahan sudut paha dari baseline = kaki terangkat
 
@@ -59,7 +61,12 @@ export class SitupTracker implements ExerciseTracker {
 
     if (!isLeftValid && !isRightValid) {
       this.acc.markLost(timestamp);
-      return this.lostResult('Pastikan bahu dan torso terlihat dari samping', Math.max(leftVis, rightVis));
+      return this.lostResult(
+        this.acc.abortNotice(timestamp)
+          ? 'Rep dibatalkan: tubuh tidak terlihat kamera. Mulai lagi dari posisi berbaring'
+          : 'Pastikan bahu dan torso terlihat dari samping',
+        Math.max(leftVis, rightVis)
+      );
     }
     this.acc.markVisible();
 

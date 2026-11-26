@@ -8,6 +8,7 @@ import {
   PlankTracker,
   createTracker,
 } from '../index';
+import { LandmarkSmoother } from '../base-tracker';
 
 const FRAME_MS = 33; // ~30 fps, cadence nyata (debounce butuh beberapa frame)
 
@@ -172,6 +173,52 @@ describe('PushupTracker', () => {
   });
 });
 
+// ── Push-up: regresi "stuck" di posisi atas/bawah ───────────────────────────
+
+/** Push-up tampak samping (ruang piksel 640x480): pergelangan diam, sudut siku = deg. */
+function pushupArm(deg: number): NormalizedLandmark[] {
+  const L = 90;
+  const wrist = { x: 200, y: 400 };
+  const half = ((180 - deg) / 2) * (Math.PI / 180);
+  const elbow = { x: wrist.x + L * Math.sin(half), y: wrist.y - L * Math.cos(half) };
+  const shoulder = { x: wrist.x, y: elbow.y - L * Math.cos(half) };
+  const ankle = { x: 520, y: 400 };
+  const hip = { x: (shoulder.x + ankle.x) / 2, y: (shoulder.y + ankle.y) / 2 };
+  const pose = createBlankPose();
+  for (const [s, e, w, h, a] of [[11, 13, 15, 23, 27], [12, 14, 16, 24, 28]]) {
+    setPoint(pose, s, shoulder.x / 640, shoulder.y / 480);
+    setPoint(pose, e, elbow.x / 640, elbow.y / 480);
+    setPoint(pose, w, wrist.x / 640, wrist.y / 480);
+    setPoint(pose, h, hip.x / 640, hip.y / 480);
+    setPoint(pose, a, ankle.x / 640, ankle.y / 480);
+  }
+  return pose;
+}
+
+/** Rep sinusoidal kontinu lewat smoother produksi, seperti pipeline usePoseDetection. */
+function runSmoothedReps(lo: number, hi: number, periodS: number, reps: number): number {
+  const smoother = new LandmarkSmoother();
+  const tracker = new PushupTracker();
+  let count = 0;
+  const end = 1000 + reps * periodS * 1000 + 1000;
+  for (let t = 0; t <= end; t += FRAME_MS) {
+    const u = Math.min(Math.max(t - 1000, 0), reps * periodS * 1000) / 1000 / periodS;
+    const deg = lo + (hi - lo) * (1 + Math.cos(2 * Math.PI * u)) / 2;
+    count = tracker.processLandmarks(smoother.smooth(pushupArm(deg), t / 1000), t, { width: 640, height: 480 }).repCount;
+  }
+  return count;
+}
+
+describe('PushupTracker regressions (stuck)', () => {
+  it('counts brisk reps (1.2 s) after landmark smoothing: filter must not shave off top/bottom', () => {
+    expect(runSmoothedReps(85, 170, 1.2, 10)).toBe(10);
+  });
+
+  it('counts reps whose lockout is ~155° (elbow not fully straight)', () => {
+    expect(runSmoothedReps(80, 155, 2, 10)).toBe(10);
+  });
+});
+
 // ── Squat ────────────────────────────────────────────────────────────────────
 
 function squatPose(hipX: number, hipY: number): NormalizedLandmark[] {
@@ -332,6 +379,95 @@ describe('PlankTracker', () => {
     tracker.processLandmarks(plankPose(0.5), 0);
     for (let i = 1; i <= 30; i++) tracker.processLandmarks(plankPose(0.7), i * FRAME_MS);
     expect(tracker.getFaults()).toHaveLength(1);
+  });
+});
+
+// ── Regresi "stuck" / hitungan hilang di mode lain ─────────────────────────
+
+const PX = { width: 640, height: 480 };
+const toNorm = (x: number, y: number) => ({ x: x / PX.width, y: y / PX.height });
+
+/** Jalankan sinyal kontinu (u: 0..1 per rep, cos) lewat smoother produksi. */
+function runReps(
+  tracker: { processLandmarks: PushupTracker['processLandmarks'] },
+  poseAt: (u: number) => NormalizedLandmark[],
+  periodS: number,
+  reps: number
+) {
+  const smoother = new LandmarkSmoother();
+  let res = tracker.processLandmarks(poseAt(0), 0, PX);
+  const end = 1000 + reps * periodS * 1000 + 1000;
+  for (let t = 0; t <= end; t += FRAME_MS) {
+    const u = Math.min(Math.max(t - 1000, 0), reps * periodS * 1000) / 1000 / periodS;
+    res = tracker.processLandmarks(smoother.smooth(poseAt((1 - Math.cos(2 * Math.PI * u)) / 2), t / 1000), t, PX);
+  }
+  return res;
+}
+
+/** Sit-up tampak samping: torso dari `lying`° ke `crunch`° terhadap horizontal. */
+function situpAt(lying: number, crunch: number) {
+  return (k: number) => {
+    const deg = (lying + (crunch - lying) * k) * (Math.PI / 180);
+    const pose = createBlankPose();
+    const hip = { x: 300, y: 380 };
+    const sh = toNorm(hip.x - 160 * Math.cos(deg), hip.y - 160 * Math.sin(deg));
+    const h = toNorm(hip.x, hip.y);
+    const kn = toNorm(420, 300);
+    for (const [s, hp, knee] of [[11, 23, 25], [12, 24, 26]]) {
+      setPoint(pose, s, sh.x, sh.y); setPoint(pose, hp, h.x, h.y); setPoint(pose, knee, kn.x, kn.y);
+    }
+    return pose;
+  };
+}
+
+/** Jumping jack tampak depan: k=0 tangan di samping (~15°), k=1 di atas kepala (~165°). */
+function jackAt(anklesVisible = true) {
+  return (k: number) => {
+    const deg = (15 + 150 * k) * (Math.PI / 180);
+    const pose = createBlankPose();
+    const L = 150;
+    const ls = { x: 280, y: 150 }, rs = { x: 360, y: 150 };
+    setPoint(pose, 11, ...(Object.values(toNorm(ls.x, ls.y)) as [number, number]));
+    setPoint(pose, 12, ...(Object.values(toNorm(rs.x, rs.y)) as [number, number]));
+    const lw = toNorm(ls.x - L * Math.sin(deg), ls.y + L * Math.cos(deg));
+    const rw = toNorm(rs.x + L * Math.sin(deg), rs.y + L * Math.cos(deg));
+    setPoint(pose, 15, lw.x, lw.y); setPoint(pose, 16, rw.x, rw.y);
+    const lh = toNorm(295, 300), rh = toNorm(345, 300);
+    setPoint(pose, 23, lh.x, lh.y); setPoint(pose, 24, rh.x, rh.y);
+    const spread = 20 + 80 * k;
+    const la = toNorm(320 - spread, 470), ra = toNorm(320 + spread, 470);
+    pose[27] = { ...la, z: 0, visibility: anklesVisible ? 0.95 : 0.2 };
+    pose[28] = { ...ra, z: 0, visibility: anklesVisible ? 0.95 : 0.2 };
+    return pose;
+  };
+}
+
+describe('Other exercise regressions', () => {
+  it('sit-up: counts reps when lying torso reads ~15° (mat / body thickness)', () => {
+    expect(runReps(new SitupTracker(), situpAt(15, 75), 2, 8).repCount).toBe(8);
+  });
+
+  it('jumping jack: counts brisk reps (0.9 s)', () => {
+    expect(runReps(new JumpingJackTracker(), jackAt(), 0.9, 10).repCount).toBe(10);
+  });
+
+  it('jumping jack: counts arm reps when feet leave the frame', () => {
+    expect(runReps(new JumpingJackTracker(), jackAt(false), 1.2, 8).repCount).toBe(8);
+  });
+
+  it('plank: hip hovering at the limit does not flood faults (hysteresis)', () => {
+    const tracker = new PlankTracker();
+    for (let i = 0; i < 90; i++) tracker.processLandmarks(plankPose(i % 2 ? 0.553 : 0.559), i * FRAME_MS, PX);
+    expect(tracker.getFaults().length).toBeLessThanOrEqual(1);
+  });
+
+  it('squat: tells the user to move the camera to the side when viewed from the front', () => {
+    const pose = createBlankPose();
+    setPoint(pose, 11, 0.4, 0.3); setPoint(pose, 12, 0.6, 0.3);
+    setPoint(pose, 23, 0.44, 0.55); setPoint(pose, 24, 0.56, 0.55);
+    setPoint(pose, 25, 0.44, 0.72); setPoint(pose, 26, 0.56, 0.72);
+    setPoint(pose, 27, 0.44, 0.9); setPoint(pose, 28, 0.56, 0.9);
+    expect(new SquatTracker().processLandmarks(pose, 0, PX).feedback).toMatch(/SAMPING/);
   });
 });
 

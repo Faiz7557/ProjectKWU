@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, use } from 'react';
 import { notFound } from 'next/navigation';
 import { createTracker, ExerciseTracker } from '@/trackers';
+import { persistCalibration } from '@/trackers/calibration';
 import { useCamera } from '@/hooks/useCamera';
 import { usePoseDetection } from '@/hooks/usePoseDetection';
 import { CameraGuide } from '@/components/camera/CameraGuide';
@@ -25,7 +26,7 @@ import { AchievementToast } from '@/components/ui/AchievementToast';
 import type { Achievement } from '@/lib/gamification/types';
 import { estimateCalories, summarizeFaults, hasWork } from '@/lib/workout/session-metrics';
 import Link from 'next/link';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 interface WorkoutPageProps {
   params: Promise<{
@@ -331,6 +332,9 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
     const cleanReps = tracker.getCleanRepCount();
     setCleanRepsCount(cleanReps);
 
+    // Kalibrasi otomatis: ROM rep penuh sesi ini menjadi ambang personal sesi berikutnya.
+    persistCalibration(tracker);
+
     const summarizedFaults = summarizeFaults(tracker.getFaults());
     setFaultsSummary(summarizedFaults);
 
@@ -484,6 +488,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
               fps={fps}
               isTracking={trackingResult?.isTracking ?? false}
               onToggleFacingMode={toggleFacingMode}
+              error={cameraError || modelError}
             />
 
             <EnvironmentCheck
@@ -506,14 +511,6 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
         {/* FASE 4: Active Workout Flow */}
         {sessionPhase === 'active' && (
           <div className="w-full space-y-6 animate-enter">
-            {/* Error handling jika kamera ditolak / model gagal */}
-            {(cameraError || modelError) && (
-              <div className="bg-danger-soft border border-danger/30 rounded-md p-4 flex items-center gap-3 text-sm text-danger max-w-2xl mx-auto">
-                <AlertCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
-                <span>{cameraError || modelError}</span>
-              </div>
-            )}
-
             {/* Video + Skeleton Overlay */}
             <CameraFeed
               videoRef={videoRef}
@@ -522,6 +519,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
               fps={fps}
               isTracking={trackingResult?.isTracking ?? false}
               onToggleFacingMode={toggleFacingMode}
+              error={cameraError || modelError}
             />
 
             {/* HUD Metrik, Voice Coach, dan Kontrol */}

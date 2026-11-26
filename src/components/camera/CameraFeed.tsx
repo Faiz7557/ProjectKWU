@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Camera, SwitchCamera, Activity } from 'lucide-react';
+import { Camera, SwitchCamera, Activity, AlertCircle } from 'lucide-react';
 import type { CameraStatus } from '@/hooks/useCamera';
 import { PrivacyBadge } from '@/components/ui/PrivacyBadge';
 
@@ -12,6 +12,8 @@ interface CameraFeedProps {
   fps: number;
   isTracking: boolean;
   onToggleFacingMode?: () => void;
+  /** Error kamera/model; ditampilkan di atas video agar terlihat di semua fase. */
+  error?: string | null;
 }
 
 export function CameraFeed({
@@ -21,6 +23,7 @@ export function CameraFeed({
   fps,
   isTracking,
   onToggleFacingMode,
+  error,
 }: CameraFeedProps) {
   return (
     <div className="relative w-full aspect-[4/3] max-w-2xl mx-auto overflow-hidden bg-ink">
@@ -82,6 +85,16 @@ export function CameraFeed({
           </button>
         )}
       </div>
+
+      {error && (
+        <div
+          role="alert"
+          className="absolute z-10 bottom-4 inset-x-4 flex items-start gap-2 bg-danger-soft border border-danger/30 p-3 text-sm text-danger"
+        >
+          <AlertCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Placeholder jika kamera belum aktif */}
       {status !== 'active' && (

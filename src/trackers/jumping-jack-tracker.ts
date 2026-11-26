@@ -42,11 +42,12 @@ export class JumpingJackTracker implements ExerciseTracker {
       'Pastikan seluruh tubuh dari kepala hingga kaki tampak di layar',
       'Mulai dari posisi berdiri tegak dengan tangan di samping paha',
     ],
+    // Rep dihitung dari lengan saja. Pergelangan kaki opsional (hanya untuk fault "kaki tidak dibuka"):
+    // saat melompat kaki sering keluar bawah frame, dan sebelumnya itu membatalkan seluruh rep.
     requiredLandmarks: [
       L_SHOULDER, R_SHOULDER,
       L_WRIST, R_WRIST,
       L_HIP, R_HIP,
-      L_ANKLE, R_ANKLE,
     ],
     minVisibility: 0.45,
   };
@@ -72,7 +73,9 @@ export class JumpingJackTracker implements ExerciseTracker {
         state: this.stateLabel(),
         repCount: this.acc.repCount,
         cleanRepCount: this.acc.cleanRepCount,
-        feedback: 'Posisikan seluruh tubuh tampak dari depan',
+        feedback: this.acc.abortNotice(timestamp)
+          ? 'Rep dibatalkan: lengan keluar dari frame. Mundur sedikit dari kamera'
+          : 'Posisikan seluruh tubuh tampak dari depan',
         angles: {},
         confidence: avgVisibility,
         isTracking: false,
@@ -90,7 +93,9 @@ export class JumpingJackTracker implements ExerciseTracker {
     const avgArm = (leftArm + rightArm) / 2;
 
     const shoulderWidth = distance2D(p[L_SHOULDER], p[R_SHOULDER]);
-    const feetRatio = shoulderWidth > 1e-4 ? distance2D(p[L_ANKLE], p[R_ANKLE]) / shoulderWidth : 0;
+    const vis = (i: number) => landmarks[i]?.visibility ?? 0;
+    const anklesVisible = vis(L_ANKLE) >= this.config.minVisibility && vis(R_ANKLE) >= this.config.minVisibility;
+    const feetRatio = anklesVisible && shoulderWidth > 1e-4 ? distance2D(p[L_ANKLE], p[R_ANKLE]) / shoulderWidth : null;
 
     const observed: FormFault[] = [];
 
@@ -107,7 +112,7 @@ export class JumpingJackTracker implements ExerciseTracker {
     }
 
     // Kaki tidak dibuka penuh saat tangan sudah di atas.
-    if (avgArm >= ARM_ANGLE_OPEN - 10 && feetRatio < FEET_RATIO_OPEN) {
+    if (feetRatio !== null && avgArm >= ARM_ANGLE_OPEN - 10 && feetRatio < FEET_RATIO_OPEN) {
       observed.push({
         id: 'feet_not_open',
         name: 'Kaki Tidak Dibuka Penuh',
@@ -149,7 +154,7 @@ export class JumpingJackTracker implements ExerciseTracker {
       angles: {
         leftArm,
         rightArm,
-        feetRatio: Number(feetRatio.toFixed(2)),
+        ...(feetRatio !== null && { feetRatio: Number(feetRatio.toFixed(2)) }),
       },
       confidence: avgVisibility,
       isTracking: true,
