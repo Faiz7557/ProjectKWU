@@ -13,6 +13,8 @@ import { Card, Badge } from '@/components/ui/Surfaces';
 import { ExerciseIcon, EXERCISE_PANEL } from '@/components/ui/ExerciseIcon';
 import { Dialog } from '@/components/ui/Dialog';
 import { toast } from '@/components/ui/Toast';
+import { PremiumLock } from '@/components/ui/PremiumLock';
+import { useEntitlement } from '@/lib/auth/use-premium';
 import { ArrowRight, Clock, Layers, Plus, Target, Trash2, Dumbbell } from 'lucide-react';
 
 type Tab = 'single' | 'routines';
@@ -21,6 +23,7 @@ const DIFFICULTY_LABEL: Record<string, string> = { easy: 'Mudah', challenge: 'Me
 
 export default function WorkoutSelectorPage() {
   const exercises = getAllExerciseConfigs();
+  const ent = useEntitlement();
   const [tab, setTab] = useState<Tab>('single');
   // State diisi di klien (useEffect) agar SSR dan hydrasi sama (UI_UX_BRIEF §2.1 #6).
   const [progressions, setProgressions] = useState<Record<string, ProgressionResult>>({});
@@ -83,7 +86,8 @@ export default function WorkoutSelectorPage() {
         {tab === 'single' && (
           <ul className="grid animate-enter grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {exercises.map((ex, idx) => {
-              const prog = progressions[ex.id];
+              // Target adaptif = analisis lanjutan (Premium).
+              const prog = ent.isPremium ? progressions[ex.id] : undefined;
               const isTimer = ex.type === 'timer';
               const isFront = ex.cameraOrientation === 'front';
               return (
@@ -128,7 +132,17 @@ export default function WorkoutSelectorPage() {
           </ul>
         )}
 
-        {tab === 'routines' && (
+        {tab === 'routines' && ent.tier === 'loading' && <div className="h-48 animate-pulse bg-surface-3" aria-label="Memuat" />}
+
+        {tab === 'routines' && ent.tier !== 'loading' && !ent.isPremium && (
+          <PremiumLock
+            className="animate-enter"
+            feature="Program sirkuit"
+            description="Jalankan rangkaian latihan dengan jeda otomatis, atau buat program kamu sendiri."
+          />
+        )}
+
+        {tab === 'routines' && ent.isPremium && (
           <div className="animate-enter space-y-5">
             <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">

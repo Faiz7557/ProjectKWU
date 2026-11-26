@@ -18,7 +18,8 @@ import { triggerHapticSuccess, triggerHapticFault, triggerHapticMilestone } from
 import { metronome } from '@/lib/audio/metronome';
 import { voiceCommander, VoiceCommandEvent } from '@/lib/audio/voice-commands';
 import { ReferencePoseVisualizer } from '@/components/camera/ReferencePoseVisualizer';
-import { getExerciseProgression } from '@/lib/progression/engine';
+import { getExerciseProgression, DEFAULT_TARGETS } from '@/lib/progression/engine';
+import { useEntitlement } from '@/lib/auth/use-premium';
 import { recordWorkoutSessionCompletion } from '@/lib/gamification/streak';
 import { AchievementToast } from '@/components/ui/AchievementToast';
 import type { Achievement } from '@/lib/gamification/types';
@@ -83,13 +84,16 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
   >([]);
 
   // Adaptive Progression & Gamification State
-  const [progressionTarget] = useState<number>(() => {
+  const [adaptiveTarget] = useState<number>(() => {
     try {
       return getExerciseProgression(exerciseId).suggestedTarget;
     } catch {
       return 15;
     }
   });
+  // Target adaptif = analisis lanjutan (Premium); akun gratis memakai target standar.
+  const { isPremium } = useEntitlement();
+  const progressionTarget = isPremium ? adaptiveTarget : (DEFAULT_TARGETS[exerciseId] ?? 15);
   const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
   const [leveledUp, setLeveledUp] = useState(false);
   const [newLevel, setNewLevel] = useState(1);
@@ -180,7 +184,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
         voiceCoach.speakRep(currentReps);
 
         // Anti-rushing: peringatan jika repetisi dilakukan terburu-buru
-        if (tempoState?.lastRepTempo?.isRushed) {
+        if (isPremium && tempoState?.lastRepTempo?.isRushed) {
           setTimeout(() => {
             voiceCoach.speakCorrection('Kendalikan tempo, turun lebih perlahan!');
           }, 650);
@@ -188,7 +192,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
       }
     }
     prevRepCountRef.current = currentReps;
-  }, [trackingResult?.repCount, isVoiceEnabled, progressionTarget, tempoState?.lastRepTempo?.isRushed]);
+  }, [trackingResult?.repCount, isVoiceEnabled, progressionTarget, tempoState?.lastRepTempo?.isRushed, isPremium]);
 
   // Haptic feedback & Voice coach koreksi form otomatis
   useEffect(() => {

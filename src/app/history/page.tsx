@@ -12,6 +12,11 @@ import { Card, Badge, Stat, ProgressBar } from '@/components/ui/Surfaces';
 import { Toggle } from '@/components/ui/Controls';
 import { Dialog } from '@/components/ui/Dialog';
 import { ExerciseIcon } from '@/components/ui/ExerciseIcon';
+import { PremiumLock } from '@/components/ui/PremiumLock';
+import { useEntitlement } from '@/lib/auth/use-premium';
+
+/** Akun gratis melihat riwayat 7 hari terakhir; Premium melihat semuanya. */
+const FREE_HISTORY_DAYS = 7;
 
 interface SavedSession {
   id: string;
@@ -65,7 +70,12 @@ const formatDate = (isoString: string) => {
 };
 
 export default function HistoryPage() {
-  const [sessions, setSessions] = useState<SavedSession[]>([]);
+  const [allSessions, setSessions] = useState<SavedSession[]>([]);
+  const ent = useEntitlement();
+  // Batas dihitung saat data dimuat (bukan saat render) agar render tetap murni.
+  const [cutoff, setCutoff] = useState(0);
+  const sessions = ent.isPremium ? allSessions : allSessions.filter((s) => new Date(s.startedAt).getTime() >= cutoff);
+  const hiddenCount = allSessions.length - sessions.length;
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [gamification, setGamification] = useState<UserGamificationState | null>(null);
@@ -115,6 +125,7 @@ export default function HistoryPage() {
       }
 
       localSessions.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+      setCutoff(Date.now() - FREE_HISTORY_DAYS * 86400_000);
       setSessions(localSessions);
       setIsLoading(false);
     }
@@ -275,6 +286,13 @@ export default function HistoryPage() {
           ))}
         </div>
 
+        {!ent.isPremium && ent.tier !== 'loading' && (
+          <PremiumLock
+            feature="Riwayat lengkap"
+            description={`Akun gratis menampilkan ${FREE_HISTORY_DAYS} hari terakhir${hiddenCount > 0 ? `; ${hiddenCount} sesi lama tersembunyi` : ''}.`}
+          />
+        )}
+
         {/* Daftar sesi */}
         {isLoading ? (
           <p className="py-12 text-center text-callout text-text-3" role="status">
@@ -348,7 +366,7 @@ export default function HistoryPage() {
           </ul>
         )}
 
-        {sessions.length > 0 && (
+        {allSessions.length > 0 && (
           <div className="flex justify-center pt-2">
             <Button variant="tertiary" className="text-danger" icon={<Trash2 className="size-4" aria-hidden="true" />} onClick={() => setConfirmClear(true)}>
               Hapus semua riwayat
@@ -361,7 +379,7 @@ export default function HistoryPage() {
         open={confirmClear}
         onClose={() => setConfirmClear(false)}
         title="Hapus semua riwayat?"
-        description={`${sessions.length} sesi di perangkat ini akan dihapus. Tindakan ini tidak bisa dibatalkan.`}
+        description={`${allSessions.length} sesi di perangkat ini akan dihapus. Tindakan ini tidak bisa dibatalkan.`}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={() => setConfirmClear(false)}>

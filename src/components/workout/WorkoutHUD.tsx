@@ -5,6 +5,7 @@ import type { ExerciseConfig, TrackingResult, BilateralSymmetry } from '@/tracke
 import type { TempoState } from '@/lib/tempo/tempo-tracker';
 import type { GestureDetectionResult } from '@/lib/gestures/detector';
 import { SymmetryIndicator } from './SymmetryIndicator';
+import { useEntitlement } from '@/lib/auth/use-premium';
 import { ACTIVE_STATES, stateLabel } from './state-labels';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
@@ -82,6 +83,8 @@ export function WorkoutHUD({
   onFinish,
   onOpenReference,
 }: WorkoutHUDProps) {
+  // Tempo & simetri = analisis lanjutan (Premium).
+  const { isPremium } = useEntitlement();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [confirm, setConfirm] = useState<'reset' | 'finish' | null>(null);
 
@@ -194,7 +197,7 @@ export function WorkoutHUD({
           <Clock className="size-3.5" aria-hidden="true" />
           {formatDuration(elapsedSeconds)}
         </span>
-        {tempoState?.lastRepTempo && !isTimer && (
+        {isPremium && tempoState?.lastRepTempo && !isTimer && (
           <span className="inline-flex items-center gap-1.5">
             <Gauge className="size-3.5" aria-hidden="true" />
             Tempo {tempoState.lastRepTempo.tempoFormat}
@@ -209,7 +212,7 @@ export function WorkoutHUD({
         )}
       </div>
 
-      {symmetry && <SymmetryIndicator symmetry={symmetry} />}
+      {isPremium && symmetry && <SymmetryIndicator symmetry={symmetry} />}
 
       {/* Kontrol: 3 tombol 56px, posisi tetap */}
       <div className="grid grid-cols-3 gap-3">

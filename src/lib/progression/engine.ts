@@ -18,7 +18,7 @@ interface SavedSessionRecord {
   faultsSummary?: { name: string; count: number; description: string }[];
 }
 
-const DEFAULT_TARGETS: Record<string, number> = {
+export const DEFAULT_TARGETS: Record<string, number> = {
   pushup: 15,
   squat: 20,
   situp: 15,

@@ -50,13 +50,13 @@ export function Pricing() {
           <h3 className="ld-big">{paid.name}</h3>
           <p className="ld-lead">{paid.blurb}</p>
           <p className="la-price__amount">
-            <strong className="font-display">{paid.monthly}/bulan</strong>
-            <span className="ld-body">atau {paid.yearly}/tahun</span>
+            <strong className="font-display">{paid.price}</strong>
+            <span className="ld-body">sekali bayar, seumur hidup</span>
           </p>
           {paid.features.length > 0 && (
             <ul className="la-price__list">{paid.features.map((f) => <li key={f} className="ld-body">{f}</li>)}</ul>
           )}
-          <button type="button" className="ld-btn la-price__cta" disabled>Segera hadir</button>
+          <Link href="/premium" className="ld-btn la-price__cta"><span>Beli Premium</span></Link>
         </article>
       </div>
     </section>

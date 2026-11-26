@@ -103,15 +103,22 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const exercise = url.searchParams.get('exercise');
 
+    // Akun gratis hanya menerima 7 hari terakhir dari cloud (tier dibaca dari DB, bukan dari klien).
+    const { data: profile } = await supabase.from('profiles').select('subscription_tier').eq('id', user.id).maybeSingle();
+    const isPremium = profile?.subscription_tier === 'premium';
+
     let query = supabase
       .from('sessions')
       .select('*')
       .eq('user_id', user.id)
       .order('started_at', { ascending: false })
-      .limit(50);
+      .limit(isPremium ? 1000 : 50);
 
     if (exercise) {
       query = query.eq('exercise', exercise);
+    }
+    if (!isPremium) {
+      query = query.gte('started_at', new Date(Date.now() - 7 * 86400_000).toISOString());
     }
 
     const { data, error } = await query;

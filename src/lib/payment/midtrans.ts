@@ -3,6 +3,7 @@ export interface CreateSnapTransactionParams {
   grossAmount: number;
   customerName: string;
   customerEmail: string;
+  finishUrl: string;
 }
 
 export interface SnapTransactionResponse {
@@ -10,65 +11,62 @@ export interface SnapTransactionResponse {
   redirect_url: string;
 }
 
-/**
- * Midtrans Snap API Client (Server-Side)
- * Mendukung pembayaran QRIS, GoPay, OVO, ShopeePay, serta Virtual Account Bank.
- */
-export async function createSnapTransaction(
-  params: CreateSnapTransactionParams
-): Promise<SnapTransactionResponse> {
+export interface MidtransStatus {
+  order_id: string;
+  transaction_status: string;
+  fraud_status?: string;
+  gross_amount: string;
+}
+
+function config() {
   const serverKey = process.env.MIDTRANS_SERVER_KEY;
-  const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
-
-  if (!serverKey) {
-    // Mock response untuk environment development jika server key belum diisi
-    return {
-      token: `mock-snap-token-${Date.now()}`,
-      redirect_url: `https://app.sandbox.midtrans.com/snap/v2/vtweb/mock-${Date.now()}`,
-    };
-  }
-
-  const baseUrl = isProduction
-    ? 'https://app.midtrans.com/snap/v1/transactions'
-    : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
-
-  const authHeader = `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`;
-
-  const payload = {
-    transaction_details: {
-      order_id: params.orderId,
-      gross_amount: params.grossAmount,
-    },
-    customer_details: {
-      first_name: params.customerName,
-      email: params.customerEmail,
-    },
-    enabled_payments: [
-      'gopay',
-      'shopeepay',
-      'qris',
-      'bca_va',
-      'bni_va',
-      'bri_va',
-      'permata_va',
-      'credit_card',
-    ],
+  if (!serverKey) throw new Error('MIDTRANS_SERVER_KEY belum dikonfigurasi.');
+  const prod = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+  return {
+    auth: `Basic ${Buffer.from(`${serverKey}:`).toString('base64')}`,
+    snapUrl: prod ? 'https://app.midtrans.com/snap/v1/transactions' : 'https://app.sandbox.midtrans.com/snap/v1/transactions',
+    apiUrl: prod ? 'https://api.midtrans.com/v2' : 'https://api.sandbox.midtrans.com/v2',
   };
+}
 
-  const response = await fetch(baseUrl, {
+export function isMidtransConfigured(): boolean {
+  return !!process.env.MIDTRANS_SERVER_KEY;
+}
+
+/**
+ * Midtrans Snap (server-side, mode redirect). Mendukung QRIS, e-wallet, VA bank, kartu.
+ * Tanpa server key: melempar error (fail-closed, tidak ada token tiruan).
+ */
+export async function createSnapTransaction(params: CreateSnapTransactionParams): Promise<SnapTransactionResponse> {
+  const { auth, snapUrl } = config();
+  const response = await fetch(snapUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      Authorization: authHeader,
-    },
-    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: auth },
+    body: JSON.stringify({
+      transaction_details: { order_id: params.orderId, gross_amount: params.grossAmount },
+      item_details: [{ id: 'premium-lifetime', name: 'SMART-FIT Premium Seumur Hidup', price: params.grossAmount, quantity: 1 }],
+      customer_details: { first_name: params.customerName, email: params.customerEmail },
+      enabled_payments: ['qris', 'gopay', 'shopeepay', 'bca_va', 'bni_va', 'bri_va', 'permata_va', 'other_va', 'credit_card'],
+      callbacks: { finish: params.finishUrl },
+    }),
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Midtrans API error (${response.status}): ${errorText}`);
+    throw new Error(`Midtrans API error (${response.status}): ${await response.text()}`);
   }
-
   return response.json();
+}
+
+/** Status transaksi langsung dari Midtrans (sumber tepercaya, diautentikasi server key). */
+export async function getTransactionStatus(orderId: string): Promise<MidtransStatus | null> {
+  const { auth, apiUrl } = config();
+  const response = await fetch(`${apiUrl}/${encodeURIComponent(orderId)}/status`, {
+    headers: { Accept: 'application/json', Authorization: auth },
+    cache: 'no-store',
+  });
+  if (!response.ok) return null;
+  const json = await response.json();
+  // 404 dikembalikan Midtrans di body (status_code), bukan HTTP: transaksi belum dibuat/dibayar.
+  if (json.status_code === '404' || !json.transaction_status) return null;
+  return json;
 }
