@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sessionPayloadSchema } from '@/lib/sessions/session-schema';
+import { isPremiumExercise } from '@/lib/payment/plans';
 
 function isSupabaseConfigured(): boolean {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -40,6 +41,13 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Silakan login untuk menyimpan sesi.' }, { status: 401 });
+    }
+
+    if (isPremiumExercise(body.exercise)) {
+      const { data: profile } = await supabase.from('profiles').select('subscription_tier').eq('id', user.id).maybeSingle();
+      if (profile?.subscription_tier !== 'premium') {
+        return NextResponse.json({ error: 'Gerakan ini khusus akun Premium.' }, { status: 403 });
+      }
     }
 
     // upsert + ignoreDuplicates: pengiriman ulang sesi yang sama (clientSessionId) tidak membuat baris ganda.

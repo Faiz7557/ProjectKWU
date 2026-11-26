@@ -19,7 +19,10 @@ import { triggerHapticSuccess, triggerHapticFault, triggerHapticMilestone } from
 import { metronome } from '@/lib/audio/metronome';
 import { voiceCommander, VoiceCommandEvent } from '@/lib/audio/voice-commands';
 import { ReferencePoseVisualizer } from '@/components/camera/ReferencePoseVisualizer';
-import { getExerciseProgression, DEFAULT_TARGETS } from '@/lib/progression/engine';
+import { getExerciseProgression } from '@/lib/progression/engine';
+import { isPremiumExercise } from '@/lib/payment/plans';
+import { PremiumLock } from '@/components/ui/PremiumLock';
+import { TopBar } from '@/components/ui/Nav';
 import { useEntitlement } from '@/lib/auth/use-premium';
 import { recordWorkoutSessionCompletion } from '@/lib/gamification/streak';
 import { AchievementToast } from '@/components/ui/AchievementToast';
@@ -34,33 +37,26 @@ interface WorkoutPageProps {
   }>;
 }
 
-// Sound effect synthesizer sederhana via Web Audio API
-function playBeep(freq: number = 600, duration: number = 0.15) {
-  if (typeof window === 'undefined') return;
-  try {
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new AudioContextClass();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + duration);
-  } catch {
-    // Ignore audio context permission restrictions
-  }
+/** Plank & jumping jack khusus Premium. Gate di luar agar kamera/model tidak dimuat untuk akun gratis. */
+export default function WorkoutSessionPage(props: WorkoutPageProps) {
+  const { exercise } = use(props.params);
+  const ent = useEntitlement();
+  if (!isPremiumExercise(exercise) || ent.isPremium) return <WorkoutSession {...props} />;
+  return (
+    <div className="min-h-dvh bg-canvas pb-16">
+      <TopBar title="Latihan" back={{ href: '/workout', label: 'Latihan' }} />
+      <div className="mx-auto max-w-2xl px-4 pt-6">
+        {ent.tier === 'loading' ? (
+          <div className="h-32 animate-pulse bg-surface-3" aria-label="Memuat" />
+        ) : (
+          <PremiumLock feature="Gerakan ini" description="Plank dan jumping jack tersedia di akun Premium, lengkap dengan penghitung dan koreksi form." />
+        )}
+      </div>
+    </div>
+  );
 }
 
-export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
+function WorkoutSession({ params }: WorkoutPageProps) {
   const resolvedParams = use(params);
   const exerciseId = resolvedParams.exercise;
 
@@ -85,16 +81,15 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
   >([]);
 
   // Adaptive Progression & Gamification State
-  const [adaptiveTarget] = useState<number>(() => {
+  const [progressionTarget] = useState<number>(() => {
     try {
       return getExerciseProgression(exerciseId).suggestedTarget;
     } catch {
       return 15;
     }
   });
-  // Target adaptif = analisis lanjutan (Premium); akun gratis memakai target standar.
+  // Peringatan tempo = analisis lanjutan (Premium).
   const { isPremium } = useEntitlement();
-  const progressionTarget = isPremium ? adaptiveTarget : (DEFAULT_TARGETS[exerciseId] ?? 15);
   const [unlockedAchievements, setUnlockedAchievements] = useState<Achievement[]>([]);
   const [leveledUp, setLeveledUp] = useState(false);
   const [newLevel, setNewLevel] = useState(1);
@@ -174,7 +169,7 @@ export default function WorkoutSessionPage({ params }: WorkoutPageProps) {
   useEffect(() => {
     const currentReps = trackingResult?.repCount ?? 0;
     if (currentReps > prevRepCountRef.current) {
-      playBeep(880, 0.15); // Nada tinggi ceria
+      metronome.playChime(880, 0.15); // Nada tinggi ceria (AudioContext bersama)
       triggerHapticSuccess();
 
       if (currentReps % 5 === 0 || currentReps === progressionTarget) {

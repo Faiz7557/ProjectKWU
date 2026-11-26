@@ -10,8 +10,10 @@ export const PRICING = {
     name: 'Akun Gratis',
     blurb: 'Buka di browser dan langsung mulai latihan.',
     features: [
-      '5 gerakan: push-up, squat, sit-up, jumping jack, plank',
+      '3 gerakan: push-up, squat, sit-up',
       'Hitung rep otomatis dan koreksi form real-time',
+      'Target adaptif sesuai progres kamu',
+      'Ekspor laporan sesi ke PDF',
       'Pelatih suara, metronom, dan perintah suara',
       'Riwayat latihan 7 hari terakhir',
     ],
@@ -22,9 +24,9 @@ export const PRICING = {
     price: rupiah(PREMIUM_LIFETIME.price),
     features: [
       'Semua fitur Akun Gratis',
+      'Gerakan tambahan: plank dan jumping jack',
       'Program sirkuit siap pakai dan pembuat program sendiri',
-      'Analisis lanjutan: tempo, simetri kiri-kanan, target adaptif',
-      'Ekspor laporan sesi ke PDF',
+      'Analisis lanjutan: tempo dan simetri kiri-kanan',
       'Riwayat latihan lengkap tanpa batas waktu',
     ],
   },

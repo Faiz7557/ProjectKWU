@@ -28,14 +28,14 @@ const ITEMS: { q: string; a: ReactNode }[] = [
   },
   {
     q: 'Gerakan apa saja yang ada?',
-    a: 'Lima gerakan: push-up, squat, sit-up, jumping jack, dan plank.',
+    a: 'Lima gerakan. Push-up, squat, dan sit-up gratis; jumping jack dan plank khusus Premium.',
   },
   {
     q: 'Bagaimana menjeda tanpa menyentuh layar?',
     a: 'Pakai gestur saat latihan. Angkat satu tangan dan tahan sebentar untuk menjeda atau melanjutkan. Silangkan lengan untuk mengakhiri sesi.',
   },
   {
-    q: 'Apa beda Akun Gratis dan Berbayar?',
+    q: 'Apa beda Akun Gratis dan Premium?',
     a: (
       <>
         Rincian paket ada di bagian{' '}

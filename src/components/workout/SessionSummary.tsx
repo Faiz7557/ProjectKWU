@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import confetti from 'canvas-confetti';
-import { AlertTriangle, CheckCircle2, FileDown, History, Lightbulb, Lock, RotateCcw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileDown, History, Lightbulb, RotateCcw } from 'lucide-react';
 import { useEntitlement } from '@/lib/auth/use-premium';
 import type { ExerciseConfig } from '@/trackers/types';
 import { ShareButton } from '@/components/workout/ShareButton';
@@ -68,7 +68,7 @@ export function SessionSummary({
   onRestart,
 }: SessionSummaryProps) {
   const isTimer = config.type === 'timer';
-  // Simetri, tempo, dan PDF = fitur Premium.
+  // Simetri & tempo = fitur Premium.
   const { isPremium } = useEntitlement();
   // Kalori sudah dihitung pemanggil dengan MET per gerakan; tidak ada rumus cadangan flat di sini.
   const kcal = caloriesBurned;
@@ -216,11 +216,6 @@ export function SessionSummary({
           <Button variant="tertiary" size="md" href="/history" icon={<History className="size-4" aria-hidden="true" />} className="px-2">
             Riwayat
           </Button>
-          {!isPremium ? (
-            <Button variant="tertiary" size="md" href="/premium" className="px-2" icon={<Lock className="size-4" aria-hidden="true" />}>
-              PDF
-            </Button>
-          ) : (
           <Button
             variant="tertiary"
             size="md"
@@ -235,17 +230,17 @@ export function SessionSummary({
                 sessionDurationSec,
                 caloriesBurned: kcal,
                 formScore,
-                symmetryScore,
+                // Simetri & tempo = analisis lanjutan (Premium); PDF gratis tanpa keduanya.
+                symmetryScore: isPremium ? symmetryScore : undefined,
                 faultsSummary,
-                tempoRatio,
-                avgTutSec,
+                tempoRatio: isPremium ? tempoRatio : undefined,
+                avgTutSec: isPremium ? avgTutSec : undefined,
                 coachAdvice: coachTip,
               })
             }
           >
             PDF
           </Button>
-          )}
         </div>
       </div>
     </article>

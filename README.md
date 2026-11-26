@@ -464,13 +464,14 @@ MIDTRANS_IS_PRODUCTION=false
 
 | Fitur | Gratis | Premium (Rp50.000 sekali bayar, seumur hidup) |
 |---|---|---|
-| 5 gerakan, hitung rep, koreksi form, pelatih suara | Ya | Ya |
+| Push-up, squat, sit-up + hitung rep, koreksi form, pelatih suara | Ya | Ya |
+| Target adaptif, ekspor laporan PDF | Ya | Ya |
+| Plank dan jumping jack | - | Ya |
 | Program sirkuit + pembuat program | - | Ya |
-| Analisis lanjutan (tempo, simetri, target adaptif) | - | Ya |
-| Ekspor laporan PDF | - | Ya |
+| Analisis lanjutan (tempo, simetri) | - | Ya |
 | Riwayat latihan | 7 hari terakhir | Lengkap |
 
-Harga: `src/lib/payment/plans.ts`. Daftar fitur: `src/components/landing/pricing-data.ts`. Status akun: `useEntitlement()` (`src/lib/auth/use-premium.ts`).
+Harga dan daftar gerakan Premium (`PREMIUM_EXERCISES`): `src/lib/payment/plans.ts`. Daftar fitur: `src/components/landing/pricing-data.ts`. Status akun: `useEntitlement()` (`src/lib/auth/use-premium.ts`).
 
 ### Alur pembayaran
 

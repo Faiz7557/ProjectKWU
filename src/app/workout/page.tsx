@@ -15,7 +15,8 @@ import { Dialog } from '@/components/ui/Dialog';
 import { toast } from '@/components/ui/Toast';
 import { PremiumLock } from '@/components/ui/PremiumLock';
 import { useEntitlement } from '@/lib/auth/use-premium';
-import { ArrowRight, Clock, Layers, Plus, Target, Trash2, Dumbbell } from 'lucide-react';
+import { ArrowRight, Clock, Layers, Lock, Plus, Target, Trash2, Dumbbell } from 'lucide-react';
+import { isPremiumExercise } from '@/lib/payment/plans';
 
 type Tab = 'single' | 'routines';
 
@@ -86,14 +87,15 @@ export default function WorkoutSelectorPage() {
         {tab === 'single' && (
           <ul className="grid animate-enter grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {exercises.map((ex, idx) => {
-              // Target adaptif = analisis lanjutan (Premium).
-              const prog = ent.isPremium ? progressions[ex.id] : undefined;
+              const prog = progressions[ex.id];
+              // Gerakan Premium terkunci untuk akun gratis/tamu: kartu mengarah ke /premium.
+              const locked = isPremiumExercise(ex.id) && !ent.isPremium;
               const isTimer = ex.type === 'timer';
               const isFront = ex.cameraOrientation === 'front';
               return (
                 <li key={ex.id} data-tour={idx === 0 ? 'wk-card' : undefined}>
                   <Link
-                    href={`/workout/${ex.id}`}
+                    href={locked ? '/premium' : `/workout/${ex.id}`}
                     className={`pressable group relative flex h-full flex-col justify-between gap-5 overflow-hidden p-5 panel-${EXERCISE_PANEL[ex.id] ?? 4}`}
                   >
                     <span
@@ -103,7 +105,11 @@ export default function WorkoutSelectorPage() {
                     <div className="relative z-10 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <ExerciseIcon exercise={ex.id} />
-                        {prog && (
+                        {locked ? (
+                          <Badge tone="neutral" className="border border-current bg-transparent text-text" icon={<Lock className="size-3.5" aria-hidden="true" />}>
+                            Premium
+                          </Badge>
+                        ) : prog && (
                           <Badge tone="neutral" className="border border-current bg-transparent text-text">
                             {DIFFICULTY_LABEL[prog.difficulty] ?? prog.difficulty}
                           </Badge>
