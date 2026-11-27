@@ -18,6 +18,8 @@ type CheckState = 'ok' | 'warn' | 'pending';
 
 /** Semua cek harus hijau terus-menerus selama ini sebelum lanjut otomatis. */
 const PASS_HOLD_MS = 1000;
+/** Interval sampling kecerahan video. */
+const LIGHT_SAMPLE_MS = 250;
 
 // Satu baris checklist: ikon status + judul + detail (UI_UX_BRIEF §7.3, checklist ala iOS).
 function CheckRow({ state, icon: Icon, title, detail }: { state: CheckState; icon: React.ComponentType<{ className?: string }>; title: string; detail: string }) {
@@ -42,78 +44,44 @@ function CheckRow({ state, icon: Icon, title, detail }: { state: CheckState; ico
 }
 
 export function EnvironmentCheck({ config, videoRef, trackingResult, onPassed, onSkip }: EnvironmentCheckProps) {
-  // State 3 indikator
   const [lightingStatus, setLightingStatus] = useState<'checking' | 'good' | 'dim' | 'glare'>('checking');
   const [lightingScore, setLightingScore] = useState<number>(0);
-  const [framingStatus, setFramingStatus] = useState<'checking' | 'good' | 'missing'>('checking');
-  const [aiLockStatus, setAiLockStatus] = useState<'waiting' | 'locked'>('waiting');
+  // Framing & kunci AI diturunkan langsung dari hasil tracking (tanpa state/loop tambahan).
+  const framingStatus = trackingResult?.isTracking ? 'good' : 'missing';
+  const aiLockStatus = trackingResult?.isTracking ? 'locked' : 'waiting';
 
-
-  // Hidden canvas untuk sampling kecerahan frame video
-  const sampleCanvasRef = useRef<HTMLCanvasElement | null>(null);
-
+  // Kecerahan dicek 4x/detik, bukan tiap frame: getImageData memaksa readback GPU->CPU sinkron
+  // yang bersaing dengan inferensi pose, dan setState per frame merender ulang halaman ~60x/detik.
   useEffect(() => {
-    let animId: number;
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 24;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    const checkEnvironment = () => {
+    const sample = () => {
       const video = videoRef.current;
-      if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-        // 1. Analisis Pencahayaan (Luminance)
-        try {
-          if (!sampleCanvasRef.current) {
-            const c = document.createElement('canvas');
-            c.width = 32;
-            c.height = 24;
-            sampleCanvasRef.current = c;
-          }
-          const ctx = sampleCanvasRef.current.getContext('2d', { willReadFrequently: true });
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, 32, 24);
-            const imgData = ctx.getImageData(0, 0, 32, 24);
-            const data = imgData.data;
-            let totalLum = 0;
-            const pixelCount = data.length / 4;
-
-            for (let i = 0; i < data.length; i += 4) {
-              const r = data[i];
-              const g = data[i + 1];
-              const b = data[i + 2];
-              // Standar ITU-R BT.601 perceptual luminance
-              totalLum += 0.299 * r + 0.587 * g + 0.114 * b;
-            }
-
-            const avgLum = totalLum / pixelCount;
-            setLightingScore(Math.round((avgLum / 255) * 100));
-
-            if (avgLum < 45) {
-              setLightingStatus('dim');
-            } else if (avgLum > 235) {
-              setLightingStatus('glare');
-            } else {
-              setLightingStatus('good');
-            }
-          }
-        } catch {
-          // Cross-origin atau browser restriction fallback
-          setLightingStatus('good');
+      if (!ctx || !video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+      try {
+        ctx.drawImage(video, 0, 0, 32, 24);
+        const data = ctx.getImageData(0, 0, 32, 24).data;
+        let totalLum = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          // Standar ITU-R BT.601 perceptual luminance
+          totalLum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
         }
-
-        // 2. Analisis Framing & Visibilitas Landmark
-        if (trackingResult?.isTracking) {
-          setFramingStatus('good');
-          setAiLockStatus('locked');
-        } else {
-          setFramingStatus('missing');
-          setAiLockStatus('waiting');
-        }
+        const avgLum = totalLum / (data.length / 4);
+        // Dibulatkan ke kelipatan 5% agar fluktuasi kecil tidak memicu render.
+        setLightingScore(Math.round((avgLum / 255) * 20) * 5);
+        setLightingStatus(avgLum < 45 ? 'dim' : avgLum > 235 ? 'glare' : 'good');
+      } catch {
+        // Cross-origin atau browser restriction fallback
+        setLightingStatus('good');
       }
-
-      animId = requestAnimationFrame(checkEnvironment);
     };
 
-    animId = requestAnimationFrame(checkEnvironment);
-    return () => cancelAnimationFrame(animId);
-  }, [videoRef, trackingResult]);
+    const id = setInterval(sample, LIGHT_SAMPLE_MS);
+    return () => clearInterval(id);
+  }, [videoRef]);
 
   const allGood = lightingStatus === 'good' && framingStatus === 'good' && aiLockStatus === 'locked';
 

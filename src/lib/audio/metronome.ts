@@ -23,6 +23,30 @@ class AudioMetronome {
     return this.audioCtx;
   }
 
+  /**
+   * Nada singkat tanda rep tercatat. Selalu bunyi (tidak tergantung toggle metronom) dan memakai
+   * AudioContext yang sama. Sebelumnya tiap rep membuat AudioContext baru yang tidak pernah ditutup:
+   * memori & thread audio bocor, dan Chrome menolak context baru setelah batasnya tercapai.
+   */
+  public playChime(freq: number = 880, duration: number = 0.15): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch {
+      // Abaikan pembatasan izin audio browser
+    }
+  }
+
   public setEnabled(enabled: boolean): void {
     this.isEnabled = enabled;
   }

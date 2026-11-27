@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAllExerciseConfigs } from '@/trackers';
+import { preloadPoseDetector } from '@/lib/mediapipe/pose-detector';
 import { getAllRoutines, deleteCustomRoutine, saveCustomRoutine, WorkoutRoutine, RoutineStep } from '@/lib/routines/presets';
 import { getExerciseProgression, ProgressionResult } from '@/lib/progression/engine';
 import { CustomRoutineBuilder } from '@/components/workout/CustomRoutineBuilder';
@@ -41,6 +42,9 @@ export default function WorkoutSelectorPage() {
     }
     void hydrate();
   }, []);
+
+  // Muat model pose di latar selagi pengguna memilih gerakan, agar latihan mulai tanpa menunggu.
+  useEffect(() => preloadPoseDetector(), []);
 
   const refreshRoutines = () => setRoutines(getAllRoutines());
 

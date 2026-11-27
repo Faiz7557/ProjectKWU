@@ -218,7 +218,32 @@ tubuh masuk frame. Untuk jumping jack, letakkan kamera di depan.
    localStorage `smartfit_calibration`.
 7. Bandingkan setiap hitungan aplikasi dengan hitungan manual.
 
-## 9. Catatan
+## 9. Optimasi performa lanjutan
+
+| # | Masalah | Dampak | Perbaikan | File |
+|---|---|---|---|---|
+| 1 | Cek kecerahan di `EnvironmentCheck` memanggil `getImageData` (readback GPU→CPU sinkron) dan 4 `setState` **tiap frame** | Render ulang ~60×/dtk dan bersaing dengan inferensi selama fase pemeriksaan | Sampling 4×/dtk; skor dibulatkan ke kelipatan 5%; status framing/pelacakan diturunkan dari `trackingResult` tanpa state | `src/components/camera/EnvironmentCheck.tsx` |
+| 2 | `playBeep` membuat `AudioContext` baru tiap rep tanpa ditutup | Memori dan thread audio bocor; Chrome menolak context baru setelah batasnya, jadi bunyi rep berhenti | `metronome.playChime()` memakai satu context bersama | `src/lib/audio/metronome.ts`, `src/app/workout/[exercise]/page.tsx` |
+| 3 | Inferensi pertama mengompilasi shader GPU tepat saat latihan dimulai | Layar membeku ±0,3–1 dtk setelah countdown | Warm-up: satu inferensi kosong segera setelah model dimuat | `src/lib/mediapipe/pose-detector.ts` |
+| 4 | `/wasm` (11,7 MB) dan `/models` (5,8–9,4 MB) dikirim dengan `max-age=0` | Revalidasi tiap kunjungan (service worker hanya aktif di production) | `Cache-Control: public, max-age=604800, stale-while-revalidate=86400` | `next.config.ts` |
+| 5 | Runtime dan model baru diunduh saat halaman latihan dibuka | Kunjungan pertama menunggu ±20 MB sebelum kamera bisa dipakai | `preloadPoseDetector()` memuat dan melakukan warm-up detector saat browser idle di `/workout`. Halaman latihan memakai instance yang sama (singleton). | `src/lib/mediapipe/pose-detector.ts`, `src/app/workout/page.tsx` |
+| 6 | Model full dipilih hanya dari jumlah core dan RAM | Laptop kuat dengan GPU lemah tertahan di FPS rendah | FPS < 18 selama 3 dtk berturut-turut dengan model full akan otomatis beralih ke lite (`downgradeToLite()`) | `src/hooks/usePoseDetection.ts`, `src/lib/mediapipe/pose-detector.ts` |
+| 7 | `shadowBlur` (blur Gaussian) dipakai tiap frame untuk glow kerangka, bayangan gerakan, label, dan indikator gestur | Mahal di HP | Glow fault diganti garis lebar transparan; label memakai outline teks; semua tulang digambar dalam satu path | `src/lib/mediapipe/drawing-utils.ts` |
+
+Sudah efisien sebelumnya, tidak diubah: adegan 3D hanya digambar saat ada perubahan dan berhenti
+saat tidak terlihat (`IntersectionObserver`); 28 ikon 3D di landing berbagi satu stage WebGL;
+three.js dimuat terpisah lewat `import()` dinamis.
+
+**Verifikasi:**
+- Header cache baru terkirim untuk `/wasm/*` dan `/models/*`.
+- Di `/workout`, runtime WASM dan model termuat di latar tanpa error console.
+- 135/135 test, typecheck, dan lint lulus.
+
+**Belum diukur:** FPS dan jank pada gerakan nyata. Pane browser tersembunyi saat pengujian, jadi
+browser memperlambat animasinya dan angka FPS tidak valid. Ukur dengan build production
+(`npm run build` lalu `npm start`), karena mode dev jauh lebih lambat.
+
+## 10. Catatan
 
 - Working tree juga berisi perubahan lain yang **bukan** bagian inspeksi ini (payment, premium,
   README, `pricing-data.ts`). Saat inspeksi, `pricing-data.ts` sempat menampilkan error

@@ -45,22 +45,25 @@ export function drawSkeleton(
   ctx.lineWidth = lineWidth;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  if (hasFault) {
-    ctx.shadowColor = stage.boneFault;
-    ctx.shadowBlur = 8;
-  }
 
+  // Semua tulang dalam satu path. Glow fault = garis lebar transparan di bawahnya, bukan shadowBlur:
+  // shadowBlur menjalankan blur Gaussian tiap frame dan mahal di HP.
+  ctx.beginPath();
   for (const [startIdx, endIdx] of POSE_CONNECTIONS) {
     const p1 = landmarks[startIdx];
     const p2 = landmarks[endIdx];
-
     if ((p1.visibility ?? 1) < 0.4 || (p2.visibility ?? 1) < 0.4) continue;
-
-    ctx.beginPath();
     ctx.moveTo(p1.x * width, p1.y * height);
     ctx.lineTo(p2.x * width, p2.y * height);
-    ctx.stroke();
   }
+  if (hasFault) {
+    ctx.globalAlpha = 0.3;
+    ctx.lineWidth = lineWidth * 3;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = lineWidth;
+  }
+  ctx.stroke();
   ctx.restore();
 
   // 2. Gambar titik sendi (Joints)
@@ -91,8 +94,10 @@ export function drawSkeleton(
     ctx.save();
     ctx.font = 'bold 12px monospace';
     ctx.fillStyle = accentColor;
-    ctx.shadowColor = stage.labelBg;
-    ctx.shadowBlur = 4;
+    // Outline teks menggantikan shadowBlur (keterbacaan sama, tanpa blur per frame).
+    ctx.strokeStyle = stage.labelBg;
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
 
     const angleToLandmark: Record<string, number> = {
       leftElbow: PoseLandmark.LEFT_ELBOW,
@@ -116,6 +121,7 @@ export function drawSkeleton(
         if (pt && (pt.visibility ?? 1) >= 0.4) {
           const px = pt.x * width + 8;
           const py = pt.y * height - 8;
+          ctx.strokeText(`${Math.round(val)}°`, px, py);
           ctx.fillText(`${Math.round(val)}°`, px, py);
         }
       }
@@ -176,9 +182,7 @@ export function drawGhostSkeleton(
   ctx.save();
   ctx.strokeStyle = stage.ghost;
   ctx.lineWidth = 2.5;
-  ctx.setLineDash([5, 5]); // Garis putus-putus
-  ctx.shadowColor = stage.ghost;
-  ctx.shadowBlur = 6;
+  ctx.setLineDash([5, 5]); // Garis putus-putus (tanpa shadowBlur: blur per frame mahal di HP)
 
   // Gambar sambungan tulang bayangan
   for (const [startIdx, endIdx] of POSE_CONNECTIONS) {
@@ -245,9 +249,7 @@ export function drawGestureIndicator(
   const endAngle = startAngle + progress * 2 * Math.PI;
   ctx.arc(px, py, radius, startAngle, endAngle);
   ctx.strokeStyle = stage.focusJoint;
-  ctx.lineWidth = 4;
-  ctx.shadowColor = stage.focusJoint;
-  ctx.shadowBlur = 10;
+  ctx.lineWidth = 5;
   ctx.stroke();
 
   // Label persentase di tengah
@@ -260,8 +262,10 @@ export function drawGestureIndicator(
   // Label keterangan di atas
   ctx.font = 'bold 12px sans-serif';
   ctx.fillStyle = stage.focusJoint;
-  ctx.shadowColor = stage.labelBg;
-  ctx.shadowBlur = 4;
+  ctx.strokeStyle = stage.labelBg;
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.strokeText(label, px, py - radius - 10);
   ctx.fillText(label, px, py - radius - 10);
 
   ctx.restore();

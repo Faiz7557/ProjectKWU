@@ -6,6 +6,9 @@ import { LandmarkSmoother } from '@/trackers/base-tracker';
 import {
   getPoseDetector,
   getLoadedPoseDetector,
+  getActiveModel,
+  downgradeToLite,
+  FULL_MODEL,
   releasePoseDetector,
   WEBGL_UNAVAILABLE_MESSAGE,
 } from '@/lib/mediapipe/pose-detector';
@@ -34,6 +37,10 @@ const PUBLISH_INTERVAL_MS = 100;
 
 /** Di bawah FPS ini inferensi dilewati selang-seling agar perangkat lemah tetap responsif. */
 const LOW_FPS = 22;
+
+/** Dengan model full, FPS di bawah ini selama DOWNGRADE_AFTER_SEC detik berturut-turut = pindah ke lite. */
+const DOWNGRADE_FPS = 18;
+const DOWNGRADE_AFTER_SEC = 3;
 
 function resultKey(r: TrackingResult): string {
   return `${r.repCount}|${r.phase}|${r.state}|${r.feedback}|${r.isTracking}|${r.activeFault?.id ?? ''}`;
@@ -78,6 +85,7 @@ export function usePoseDetection(
   const frameSkipRef = useRef<number>(0);
   const publishRef = useRef({ t: 0, key: '', gesture: 'none' as string });
   const processFrameRef = useRef<() => void>(() => {});
+  const lowFpsSecondsRef = useRef(0);
 
   // Inisialisasi model MediaPipe sekali saat hook dimuat
   useEffect(() => {
@@ -238,6 +246,13 @@ export function usePoseDetection(
           } else if (now - lastFpsTimeRef.current >= 1000) {
             fpsRef.current = frameCountRef.current;
             if (isMountedRef.current) setFps(frameCountRef.current);
+            // Model full terlalu berat untuk perangkat ini: turun ke lite setelah FPS rendah berturut-turut.
+            lowFpsSecondsRef.current =
+              fpsRef.current < DOWNGRADE_FPS && getActiveModel() === FULL_MODEL ? lowFpsSecondsRef.current + 1 : 0;
+            if (lowFpsSecondsRef.current >= DOWNGRADE_AFTER_SEC) {
+              lowFpsSecondsRef.current = 0;
+              void downgradeToLite();
+            }
             frameCountRef.current = 0;
             lastFpsTimeRef.current = now;
           }

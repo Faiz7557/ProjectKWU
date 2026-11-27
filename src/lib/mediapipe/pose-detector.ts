@@ -5,6 +5,7 @@ import {
 
 let detectorPromise: Promise<PoseLandmarker> | null = null;
 let detectorInstance: PoseLandmarker | null = null;
+let activeModel: string | null = null;
 
 export const WEBGL_UNAVAILABLE_MESSAGE =
   'WebGL tidak tersedia di browser ini, jadi deteksi pose tidak bisa berjalan. ' +
@@ -16,7 +17,7 @@ export const FULL_MODEL = '/models/pose_landmarker_full.task';
 /**
  * Model "full" lebih akurat untuk siku/pergelangan tampak samping, tapi ~2x lebih berat.
  * Dipakai hanya bila file-nya disediakan di /public/models DAN perangkat cukup kuat; selain itu lite.
- * ponytail: heuristik statis (jumlah core + RAM); turunkan ke lite saat runtime bila FPS < 20 jika perlu.
+ * Heuristik awal (core + RAM); bila FPS nyata tetap rendah, usePoseDetection memanggil downgradeToLite().
  */
 export function prefersFullModel(cores: number | undefined, memoryGb: number | undefined): boolean {
   return (cores ?? 0) >= 6 && (memoryGb ?? 8) >= 4;
@@ -88,14 +89,19 @@ export async function getPoseDetector(): Promise<PoseLandmarker> {
         throw new Error(WEBGL_UNAVAILABLE_MESSAGE);
       }
       const model = await pickModel();
+      let detector: PoseLandmarker;
       try {
-        detectorInstance = await createDetector('GPU', model);
+        detector = await createDetector('GPU', model);
+        activeModel = model;
       } catch (gpuErr) {
         console.warn('GPU delegate gagal, fallback ke CPU + model lite:', gpuErr);
         // Tanpa GPU, model full terlalu berat untuk real-time.
-        detectorInstance = await createDetector('CPU', LITE_MODEL);
+        detector = await createDetector('CPU', LITE_MODEL);
+        activeModel = LITE_MODEL;
       }
-      return detectorInstance;
+      warmUp(detector);
+      detectorInstance = detector;
+      return detector;
     })().catch((err) => {
       // Jangan cache promise yang gagal: percobaan berikutnya harus bisa memuat ulang.
       detectorPromise = null;
@@ -104,6 +110,74 @@ export async function getPoseDetector(): Promise<PoseLandmarker> {
   }
 
   return detectorPromise;
+}
+
+/**
+ * Satu inferensi kosong segera setelah model dimuat. Inferensi pertama mengompilasi shader GPU
+ * (±0.3-1 dtk); tanpa ini kompilasi terjadi tepat saat latihan dimulai dan layar membeku.
+ * Dijalankan saat halaman masih di fase panduan, jadi biayanya tidak terasa.
+ */
+function warmUp(detector: PoseLandmarker): void {
+  try {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, 256, 256);
+    }
+    detector.detectForVideo(c, performance.now());
+  } catch (e) {
+    console.warn('Warm-up model gagal (diabaikan):', e);
+  }
+}
+
+/** Model yang sedang dipakai (null bila belum termuat). */
+export function getActiveModel(): string | null {
+  return detectorInstance ? activeModel : null;
+}
+
+/**
+ * Ganti ke model lite saat runtime (FPS terlalu rendah dengan model full).
+ * Selama penggantian detector bernilai null, jadi loop per-frame melewati frame dengan aman.
+ */
+export async function downgradeToLite(): Promise<void> {
+  if (!detectorInstance || activeModel === LITE_MODEL) return;
+  const old = detectorInstance;
+  detectorInstance = null;
+  try {
+    old.close();
+  } catch {
+    // diabaikan
+  }
+  detectorPromise = null;
+  try {
+    const lite = await createDetector('GPU', LITE_MODEL);
+    activeModel = LITE_MODEL;
+    warmUp(lite);
+    detectorInstance = lite;
+    detectorPromise = Promise.resolve(lite);
+  } catch (e) {
+    console.warn('Gagal beralih ke model lite, memuat ulang:', e);
+    await getPoseDetector().catch(() => {});
+  }
+}
+
+/**
+ * Muat runtime WASM + model di latar saat browser idle (dipanggil dari halaman pemilihan gerakan).
+ * Detector adalah singleton modul, jadi halaman latihan langsung memakai instance yang sudah
+ * termuat dan di-warm-up, tanpa menunggu ±20 MB unduhan + kompilasi saat tombol mulai ditekan.
+ */
+export function preloadPoseDetector(): () => void {
+  if (typeof window === 'undefined' || detectorInstance || detectorPromise) return () => {};
+  const run = () => void getPoseDetector().catch(() => {});
+  if ('requestIdleCallback' in window) {
+    const id = window.requestIdleCallback(run, { timeout: 3000 });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = setTimeout(run, 1500);
+  return () => clearTimeout(id);
 }
 
 /** Detector yang sudah termuat, atau null. Untuk loop per-frame: jangan memicu (ulang) pemuatan tiap frame. */
