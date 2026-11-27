@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ChevronLeft, CircleHelp, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { ChevronLeft, CircleHelp, Crown, Monitor, Moon, Sun, UserRound, type LucideIcon } from 'lucide-react';
+import { useEntitlement } from '@/lib/auth/use-premium';
 import { cn } from '@/lib/cn';
 import { resolveTheme, setThemePref, useThemePref, type ThemePref } from '@/lib/theme/use-theme';
 import { tourKey } from '@/components/tour/tour-steps';
@@ -46,9 +47,27 @@ export function TopBar({
             />
           )}
           <ThemeToggle />
+          <AccountLink />
         </div>
       </div>
     </header>
+  );
+}
+
+// Status akun di top bar: tamu -> masuk, gratis -> halaman Premium, Premium -> mahkota.
+function AccountLink() {
+  const { tier } = useEntitlement();
+  if (tier === 'loading') return <span className="size-11" aria-hidden="true" />;
+  const label = tier === 'premium' ? 'Akun Premium' : tier === 'free' ? 'Akun gratis, lihat Premium' : 'Masuk';
+  return (
+    <Link
+      href={tier === 'guest' ? '/masuk?next=/workout' : '/premium'}
+      aria-label={label}
+      title={label}
+      className="pressable inline-flex min-h-11 min-w-11 items-center justify-center text-paper hover:bg-paper/15"
+    >
+      {tier === 'premium' ? <Crown className="size-5" aria-hidden="true" /> : <UserRound className="size-5" aria-hidden="true" />}
+    </Link>
   );
 }
 

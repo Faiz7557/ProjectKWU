@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Play } from 'lucide-react';
 import { getRoutineById, WorkoutRoutine, RoutineStep } from '@/lib/routines/presets';
 import { createTracker, ExerciseTracker } from '@/trackers';
+import { persistCalibration } from '@/trackers/calibration';
 import type { FormFault } from '@/trackers/types';
 import { useCamera } from '@/hooks/useCamera';
 import { usePoseDetection } from '@/hooks/usePoseDetection';
@@ -25,6 +26,9 @@ import { recordWorkoutSessionCompletion } from '@/lib/gamification/streak';
 import { AchievementToast } from '@/components/ui/AchievementToast';
 import type { Achievement } from '@/lib/gamification/types';
 import { estimateCalories, summarizeFaults, hasWork } from '@/lib/workout/session-metrics';
+import { useEntitlement } from '@/lib/auth/use-premium';
+import { PremiumLock } from '@/components/ui/PremiumLock';
+import { TopBar } from '@/components/ui/Nav';
 
 interface RoutinePageProps {
   params: Promise<{
@@ -70,7 +74,25 @@ function summarizeCircuit(steps: CircuitStepResult[]): CircuitSummary {
   };
 }
 
-export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
+/** Program sirkuit khusus Premium. Gate di luar agar hook sesi tidak berjalan untuk akun gratis. */
+export default function RoutineWorkoutPage(props: RoutinePageProps) {
+  const ent = useEntitlement();
+  if (ent.isPremium) return <RoutineWorkout {...props} />;
+  return (
+    <div className="min-h-dvh bg-canvas pb-16">
+      <TopBar title="Program" back={{ href: '/workout', label: 'Latihan' }} />
+      <div className="mx-auto max-w-2xl px-4 pt-6">
+        {ent.tier === 'loading' ? (
+          <div className="h-32 animate-pulse bg-surface-3" aria-label="Memuat" />
+        ) : (
+          <PremiumLock feature="Program sirkuit" description="Jalankan rangkaian latihan dengan jeda otomatis, atau buat program kamu sendiri." />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RoutineWorkout({ params }: RoutinePageProps) {
   const resolvedParams = use(params);
   const [routine, setRoutine] = useState<WorkoutRoutine | null>(() => getRoutineById(resolvedParams.routineId) || null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -137,12 +159,14 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
   const {
     videoRef,
     status: cameraStatus,
+    error: cameraError,
     startCamera,
     stopCamera,
     toggleFacingMode,
   } = useCamera();
 
   const {
+    modelError,
     isRunning,
     trackingResult,
     tempoState,
@@ -311,6 +335,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
     triggerHapticMilestone();
 
     if (currentTracker) {
+      persistCalibration(currentTracker);
       const isCounter = currentTracker.config.type === 'counter';
       stepResultsRef.current.push({
         exerciseId: currentTracker.config.id,
@@ -520,6 +545,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
               fps={fps}
               isTracking={trackingResult?.isTracking ?? false}
               onToggleFacingMode={toggleFacingMode}
+              error={cameraError || modelError}
             />
 
             <EnvironmentCheck
@@ -555,6 +581,7 @@ export default function RoutineWorkoutPage({ params }: RoutinePageProps) {
               fps={fps}
               isTracking={trackingResult?.isTracking ?? false}
               onToggleFacingMode={toggleFacingMode}
+              error={cameraError || modelError}
             />
 
             <WorkoutHUD

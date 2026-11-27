@@ -10,6 +10,7 @@ import {
   calculateAngle,
   toPixelSpace,
   angleBetweenVectors,
+  distance2D,
   DEFAULT_FRAME,
   SideSelector,
 } from './base-tracker';
@@ -32,10 +33,13 @@ const ANGLE_SQUAT = 100;     // Sudut lutut posisi bawah (default; bisa dikalibr
 const ANGLE_STANDING = 160;  // Sudut lutut berdiri tegak
 const LEAN_LIMIT = 50;       // Sudut torso vs tibia (derajat). Di atas ini = lean berlebih.
 const HEEL_LIFT_LIMIT = 0.06; // Selisih tinggi tumit vs ujung kaki, dinormalisasi panjang tungkai
+const FRONT_VIEW_RATIO = 0.5; // Lebar bahu / panjang torso; di atas ini = kamera dari depan
 
 export interface SquatOptions {
   /** Ambang bawah hasil kalibrasi personal. */
   bottom?: number;
+  /** Ambang atas hasil kalibrasi personal (hanya boleh <= ANGLE_STANDING). */
+  top?: number;
 }
 
 export class SquatTracker implements ExerciseTracker {
@@ -58,7 +62,10 @@ export class SquatTracker implements ExerciseTracker {
 
   constructor(options: SquatOptions = {}) {
     this.acc = new RepAccumulator(
-      new RepStateMachine({ top: ANGLE_STANDING, bottom: options.bottom ?? ANGLE_SQUAT })
+      new RepStateMachine({
+        top: Math.min(options.top ?? ANGLE_STANDING, ANGLE_STANDING),
+        bottom: options.bottom ?? ANGLE_SQUAT,
+      })
     );
   }
 
@@ -73,7 +80,12 @@ export class SquatTracker implements ExerciseTracker {
 
     if (!isLeftValid && !isRightValid) {
       this.acc.markLost(timestamp);
-      return this.lostResult('Pastikan kaki dari pinggul ke pergelangan terlihat kamera', Math.max(leftVis, rightVis));
+      return this.lostResult(
+        this.acc.abortNotice(timestamp)
+          ? 'Rep dibatalkan: kaki tidak terlihat kamera. Mulai lagi dari posisi berdiri'
+          : 'Pastikan kaki dari pinggul ke pergelangan terlihat kamera',
+        Math.max(leftVis, rightVis)
+      );
     }
     this.acc.markVisible();
 
@@ -85,6 +97,20 @@ export class SquatTracker implements ExerciseTracker {
     const A = useLeft ? L_ANKLE : R_ANKLE;
     const heel = useLeft ? L_HEEL : R_HEEL;
     const toe = useLeft ? L_FOOT_INDEX : R_FOOT_INDEX;
+
+    // Kamera dari depan: paha mengarah ke kamera, sudut lutut 2D hampir tidak berubah (rep stuck di atas).
+    // Tampak samping bahu kiri-kanan bertumpuk; tampak depan lebar bahu ~0.8-1.2x panjang torso.
+    if (vis(L_SHOULDER) >= minVis && vis(R_SHOULDER) >= minVis && isLeftValid && isRightValid) {
+      const mid = (a: number, b: number) => ({ x: (p[a].x + p[b].x) / 2, y: (p[a].y + p[b].y) / 2 });
+      const torso = distance2D(mid(L_SHOULDER, R_SHOULDER), mid(L_HIP, R_HIP)) || 1;
+      if (distance2D(p[L_SHOULDER], p[R_SHOULDER]) / torso > FRONT_VIEW_RATIO) {
+        this.acc.markLost(timestamp);
+        return {
+          ...this.lostResult('Kamera menghadap depan. Letakkan kamera di SAMPING tubuh', Math.max(leftVis, rightVis)),
+          isTracking: true,
+        };
+      }
+    }
 
     const kneeAngle = calculateAngle(p[Hp], p[K], p[A]);
     const angles: Record<string, number> = { [useLeft ? 'leftKnee' : 'rightKnee']: kneeAngle };
@@ -173,6 +199,10 @@ export class SquatTracker implements ExerciseTracker {
 
   getCleanRepCount(): number {
     return this.acc.cleanRepCount;
+  }
+
+  getRomSamples(): { top: number; bottom: number }[] {
+    return this.acc.romSamples();
   }
 
   reset(): void {

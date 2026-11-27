@@ -23,7 +23,16 @@ const contentSecurityPolicy = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
+    // Runtime WASM (~11.7 MB) dan model pose (5.8-9.4 MB) tidak berubah antar deploy kecuali
+    // @mediapipe/tasks-vision di-upgrade. Default public/ adalah max-age=0 (revalidasi tiap kunjungan).
+    // Nama file tidak berversi, jadi bukan `immutable`: cache 7 hari lalu revalidasi di latar.
+    const heavyAssetCache = {
+      key: 'Cache-Control',
+      value: 'public, max-age=604800, stale-while-revalidate=86400',
+    };
     return [
+      { source: '/wasm/:path*', headers: [heavyAssetCache] },
+      { source: '/models/:path*', headers: [heavyAssetCache] },
       {
         source: '/(.*)',
         headers: [

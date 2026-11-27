@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import confetti from 'canvas-confetti';
 import { AlertTriangle, CheckCircle2, FileDown, History, Lightbulb, RotateCcw } from 'lucide-react';
+import { useEntitlement } from '@/lib/auth/use-premium';
 import type { ExerciseConfig } from '@/trackers/types';
 import { ShareButton } from '@/components/workout/ShareButton';
 import { generateWorkoutPDFReport } from '@/lib/reporting/pdf-generator';
@@ -67,6 +68,8 @@ export function SessionSummary({
   onRestart,
 }: SessionSummaryProps) {
   const isTimer = config.type === 'timer';
+  // Simetri & tempo = fitur Premium.
+  const { isPremium } = useEntitlement();
   // Kalori sudah dihitung pemanggil dengan MET per gerakan; tidak ada rumus cadangan flat di sini.
   const kcal = caloriesBurned;
   const pace = sessionDurationSec > 0 && !isTimer ? ((reps / sessionDurationSec) * 60).toFixed(1) : null;
@@ -120,7 +123,11 @@ export function SessionSummary({
           <Stat label="Estimasi kalori*" value={kcal} unit="kkal" size="l" />
         </Card>
         <Card tone={5} className="sum-in" style={stagger(3)}>
-          <Stat label="Simetri" value={symmetryScore ?? null} unit={symmetryScore !== undefined ? '%' : undefined} size="l" />
+          {isPremium ? (
+            <Stat label="Simetri" value={symmetryScore ?? null} unit={symmetryScore !== undefined ? '%' : undefined} size="l" />
+          ) : (
+            <Stat label="Simetri · Premium" value={null} size="l" />
+          )}
         </Card>
         <Card tone={4} className="sum-in" style={stagger(4)}>
           <Stat label="Durasi" value={formatMinSec(sessionDurationSec)} size="m" />
@@ -140,7 +147,7 @@ export function SessionSummary({
         </Card>
       )}
 
-      {tempoRatio && (
+      {isPremium && tempoRatio && (
         <Card className="flex items-center justify-between gap-4 text-left">
           <p className="text-caption font-semibold uppercase tracking-[0.06em] text-text-2">Ritme tempo</p>
           <div className="text-right">
@@ -223,10 +230,11 @@ export function SessionSummary({
                 sessionDurationSec,
                 caloriesBurned: kcal,
                 formScore,
-                symmetryScore,
+                // Simetri & tempo = analisis lanjutan (Premium); PDF gratis tanpa keduanya.
+                symmetryScore: isPremium ? symmetryScore : undefined,
                 faultsSummary,
-                tempoRatio,
-                avgTutSec,
+                tempoRatio: isPremium ? tempoRatio : undefined,
+                avgTutSec: isPremium ? avgTutSec : undefined,
                 coachAdvice: coachTip,
               })
             }

@@ -87,6 +87,18 @@ export function useCamera() {
     startCamera(nextMode);
   }, [facingMode, startCamera]);
 
+  // <video> bisa belum ter-mount saat startCamera dipanggil (fase panduan), dan elemen baru
+  // dibuat tiap pergantian fase (env-check -> countdown -> active). Pasang ulang stream
+  // setiap render bila elemen yang sedang ter-mount belum memegangnya.
+  useEffect(() => {
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (video && stream && video.srcObject !== stream) {
+      video.srcObject = stream;
+      video.play().catch(() => {});
+    }
+  });
+
   useEffect(() => {
     return () => {
       // Cleanup saat komponen unmount

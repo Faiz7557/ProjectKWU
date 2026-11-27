@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAllExerciseConfigs } from '@/trackers';
+import { preloadPoseDetector } from '@/lib/mediapipe/pose-detector';
 import { getAllRoutines, deleteCustomRoutine, saveCustomRoutine, WorkoutRoutine, RoutineStep } from '@/lib/routines/presets';
 import { getExerciseProgression, ProgressionResult } from '@/lib/progression/engine';
 import { CustomRoutineBuilder } from '@/components/workout/CustomRoutineBuilder';
@@ -13,7 +14,10 @@ import { Card, Badge } from '@/components/ui/Surfaces';
 import { ExerciseIcon, EXERCISE_PANEL } from '@/components/ui/ExerciseIcon';
 import { Dialog } from '@/components/ui/Dialog';
 import { toast } from '@/components/ui/Toast';
-import { ArrowRight, Clock, Layers, Plus, Target, Trash2, Dumbbell } from 'lucide-react';
+import { PremiumLock } from '@/components/ui/PremiumLock';
+import { useEntitlement } from '@/lib/auth/use-premium';
+import { ArrowRight, Clock, Layers, Lock, Plus, Target, Trash2, Dumbbell } from 'lucide-react';
+import { isPremiumExercise } from '@/lib/payment/plans';
 
 type Tab = 'single' | 'routines';
 
@@ -21,6 +25,7 @@ const DIFFICULTY_LABEL: Record<string, string> = { easy: 'Mudah', challenge: 'Me
 
 export default function WorkoutSelectorPage() {
   const exercises = getAllExerciseConfigs();
+  const ent = useEntitlement();
   const [tab, setTab] = useState<Tab>('single');
   // State diisi di klien (useEffect) agar SSR dan hydrasi sama (UI_UX_BRIEF §2.1 #6).
   const [progressions, setProgressions] = useState<Record<string, ProgressionResult>>({});
@@ -37,6 +42,9 @@ export default function WorkoutSelectorPage() {
     }
     void hydrate();
   }, []);
+
+  // Muat model pose di latar selagi pengguna memilih gerakan, agar latihan mulai tanpa menunggu.
+  useEffect(() => preloadPoseDetector(), []);
 
   const refreshRoutines = () => setRoutines(getAllRoutines());
 
@@ -84,12 +92,14 @@ export default function WorkoutSelectorPage() {
           <ul className="grid animate-enter grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {exercises.map((ex, idx) => {
               const prog = progressions[ex.id];
+              // Gerakan Premium terkunci untuk akun gratis/tamu: kartu mengarah ke /premium.
+              const locked = isPremiumExercise(ex.id) && !ent.isPremium;
               const isTimer = ex.type === 'timer';
               const isFront = ex.cameraOrientation === 'front';
               return (
                 <li key={ex.id} data-tour={idx === 0 ? 'wk-card' : undefined}>
                   <Link
-                    href={`/workout/${ex.id}`}
+                    href={locked ? '/premium' : `/workout/${ex.id}`}
                     className={`pressable group relative flex h-full flex-col justify-between gap-5 overflow-hidden p-5 panel-${EXERCISE_PANEL[ex.id] ?? 4}`}
                   >
                     <span
@@ -99,7 +109,11 @@ export default function WorkoutSelectorPage() {
                     <div className="relative z-10 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <ExerciseIcon exercise={ex.id} />
-                        {prog && (
+                        {locked ? (
+                          <Badge tone="neutral" className="border border-current bg-transparent text-text" icon={<Lock className="size-3.5" aria-hidden="true" />}>
+                            Premium
+                          </Badge>
+                        ) : prog && (
                           <Badge tone="neutral" className="border border-current bg-transparent text-text">
                             {DIFFICULTY_LABEL[prog.difficulty] ?? prog.difficulty}
                           </Badge>
@@ -128,7 +142,17 @@ export default function WorkoutSelectorPage() {
           </ul>
         )}
 
-        {tab === 'routines' && (
+        {tab === 'routines' && ent.tier === 'loading' && <div className="h-48 animate-pulse bg-surface-3" aria-label="Memuat" />}
+
+        {tab === 'routines' && ent.tier !== 'loading' && !ent.isPremium && (
+          <PremiumLock
+            className="animate-enter"
+            feature="Program sirkuit"
+            description="Jalankan rangkaian latihan dengan jeda otomatis, atau buat program kamu sendiri."
+          />
+        )}
+
+        {tab === 'routines' && ent.isPremium && (
           <div className="animate-enter space-y-5">
             <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">

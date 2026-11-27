@@ -1,14 +1,19 @@
 /**
- * Sumber tunggal harga & durasi paket. Dipakai route create (harga dikirim ke Midtrans)
- * dan webhook (cek nominal yang dibayar & hitung masa berlaku).
+ * Sumber tunggal harga paket. Dipakai route create (harga dikirim ke Midtrans)
+ * dan halaman harga. Aktivasi mencocokkan nominal dengan kolom subscriptions.amount.
  */
-export const PLANS = {
-  monthly: { price: 29000, durationDays: 30 },
-  yearly: { price: 249000, durationDays: 365 },
-} as const;
+export const PREMIUM_LIFETIME = { plan: 'lifetime', price: 50000 } as const;
 
-export type PlanId = keyof typeof PLANS;
+/** Gerakan khusus Premium. Gerakan lain gratis. */
+export const PREMIUM_EXERCISES: readonly string[] = ['plank', 'jumping_jack'];
+export const isPremiumExercise = (id: string) => PREMIUM_EXERCISES.includes(id);
 
-export function isPlanId(value: unknown): value is PlanId {
-  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PLANS, value);
+export type PaymentOutcome = 'paid' | 'failed' | 'pending';
+
+/** Status transaksi Midtrans -> hasil bisnis. 'capture' hanya lunas bila fraud_status accept. */
+export function mapOutcome(transactionStatus: string, fraudStatus?: string): PaymentOutcome {
+  if (transactionStatus === 'settlement') return 'paid';
+  if (transactionStatus === 'capture') return fraudStatus === 'accept' ? 'paid' : 'pending';
+  if (['deny', 'cancel', 'expire', 'failure'].includes(transactionStatus)) return 'failed';
+  return 'pending';
 }

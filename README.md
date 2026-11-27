@@ -442,24 +442,52 @@ smartfit-v2/
 
 ---
 
-## 9. Variabel Lingkungan (.env.local)
+## 9. Variabel Lingkungan (.env.local) & Freemium
 
-Buat file `.env.local` pada direktori `smartfit-v2/` jika ingin mengaktifkan fitur sinkronisasi cloud dan pembayaran Midtrans:
+Buat file `.env.local` pada direktori `smartfit-v2/`:
 
 ```env
-# URL Domain Aplikasi
+# URL publik aplikasi (dipakai untuk redirect kembali dari Midtrans)
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Konfigurasi Supabase (Opsional - Jika kosong, aplikasi menggunakan LocalStorage)
+# Supabase (Project Settings > API)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key   # rahasia, hanya server
 
-# Konfigurasi Midtrans Payment Gateway (Opsional)
-MIDTRANS_SERVER_KEY=SB-Mid-server-xxxxxxxxxxxx
-NEXT_PUBLIC_MIDTRANS_CLIENT_KEY=SB-Mid-client-xxxxxxxxxxxx
+# Midtrans (Dashboard > Settings > Access Keys)
+MIDTRANS_SERVER_KEY=SB-Mid-server-xxxxxxxxxxxx    # rahasia, hanya server
 MIDTRANS_IS_PRODUCTION=false
 ```
+
+### Paket akun
+
+| Fitur | Gratis | Premium (Rp50.000 sekali bayar, seumur hidup) |
+|---|---|---|
+| Push-up, squat, sit-up + hitung rep, koreksi form, pelatih suara | Ya | Ya |
+| Target adaptif, ekspor laporan PDF | Ya | Ya |
+| Plank dan jumping jack | - | Ya |
+| Program sirkuit + pembuat program | - | Ya |
+| Analisis lanjutan (tempo, simetri) | - | Ya |
+| Riwayat latihan | 7 hari terakhir | Lengkap |
+
+Harga dan daftar gerakan Premium (`PREMIUM_EXERCISES`): `src/lib/payment/plans.ts`. Daftar fitur: `src/components/landing/pricing-data.ts`. Status akun: `useEntitlement()` (`src/lib/auth/use-premium.ts`).
+
+### Alur pembayaran
+
+1. User masuk/daftar di `/masuk` (Supabase Auth email + kata sandi).
+2. Di `/premium`, tombol **Bayar** memanggil `POST /api/payment/create`: server mencatat order `pending` (nominal 50000) lalu membuat transaksi Midtrans Snap, dan browser diarahkan ke halaman pembayaran Midtrans (QRIS, e-wallet, VA bank, kartu).
+3. Setelah bayar, Midtrans mengarahkan kembali ke `/premium?order_id=...`; halaman memanggil `POST /api/payment/verify` yang menanyakan status langsung ke API Midtrans dan mengaktifkan Premium.
+4. Midtrans juga mengirim notifikasi ke `POST /api/payment/webhook` (signature SHA-512 diverifikasi). Keduanya idempotent dan mencocokkan nominal.
+
+`profiles.subscription_tier` hanya bisa diubah server (service role); lihat migrasi `003_lifetime_premium.sql`.
+
+### Langkah setup
+
+1. **Supabase**: jalankan `supabase/migrations/001`, `002`, `003` berurutan di SQL Editor. Di Authentication > URL Configuration, isi Site URL dan tambahkan `http://localhost:3000/auth/callback` (dan URL produksi) ke Redirect URLs.
+2. **Midtrans**: daftar di https://dashboard.midtrans.com, pakai mode Sandbox untuk uji coba. Salin Server Key ke `.env.local`. Di Settings > Payment > Notification URL isi `https://DOMAIN-ANDA/api/payment/webhook`.
+3. Uji di sandbox memakai simulator pembayaran Midtrans (https://simulator.sandbox.midtrans.com).
+4. **Produksi (uang sungguhan)**: lengkapi verifikasi bisnis di Midtrans hingga akun Production aktif, ganti ke Server Key production, set `MIDTRANS_IS_PRODUCTION=true`, deploy ke domain HTTPS publik, dan perbarui Notification URL.
 
 ---
 
